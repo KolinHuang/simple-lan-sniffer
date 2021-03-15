@@ -151,3 +151,62 @@ ARPPacket、DatalinkPacket、EthernetPacket、ICMPPacket、IPPacket、TCPPacket�
 
 
 
+## 3.抓包测试
+
+抓一个TCP试试，编写Java程序：
+
+开一个线程抓包：
+
+```java
+private void startCaptureThread() {
+		if (captureThread != null)
+			return;
+
+		captureThread = new Thread(new Runnable() {
+			public void run() {
+				while (captureThread != null) {
+					if (jpcap.processPacket(1, handler) == 0 && !isLive)
+						stopCaptureThread();
+					Thread.yield();
+				}
+				jpcap.breakLoop();
+			}
+		});
+		captureThread.setPriority(Thread.MIN_PRIORITY);//设置线程优先级
+		captureThread.start();
+	}
+//停止捕获数据包
+public void stopCaptureThread() {
+  captureThread = null;
+}
+```
+
+测试：
+
+```java
+@Test
+    public void test() throws InterruptedException {
+        Captor captor = new Captor();
+//        String[] devices = captor.showDevice();
+        captor.chooseDevice(0);
+        captor.setFilter("tcp");//设置提取关键字
+        captor.capturePackets();//抓包
+        while(true){
+            System.out.println("开始抓包");
+            Thread.sleep(1000);
+            List<Packet> packets = captor.getPackets();//提取数据包
+            if(!packets.isEmpty()){
+                for (Packet packet : packets) {//显示数据包内容
+                    System.out.println(captor.showPacket(packet));
+                }
+                break;
+            }
+        }
+        System.out.println("抓包结束");
+    }
+```
+
+结果：
+
+![image-20210315211433345](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210315211433345.png)
+
