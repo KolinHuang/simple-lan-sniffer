@@ -153,28 +153,28 @@ ARPPacket、DatalinkPacket、EthernetPacket、ICMPPacket、IPPacket、TCPPacket�
 
 ## 3.抓包测试
 
-抓一个TCP试试，编写Java程序：
+抓一个TCP包试试，编写Java程序：
 
 开一个线程抓包：
 
 ```java
 private void startCaptureThread() {
-		if (captureThread != null)
-			return;
+  if (captureThread != null)
+    return;
 
-		captureThread = new Thread(new Runnable() {
-			public void run() {
-				while (captureThread != null) {
-					if (jpcap.processPacket(1, handler) == 0 && !isLive)
-						stopCaptureThread();
-					Thread.yield();
-				}
-				jpcap.breakLoop();
-			}
-		});
-		captureThread.setPriority(Thread.MIN_PRIORITY);//设置线程优先级
-		captureThread.start();
-	}
+  captureThread = new Thread(new Runnable() {
+    public void run() {
+      while (captureThread != null) {
+        if (jpcap.processPacket(1, handler) == 0 && !isLive)
+          stopCaptureThread();
+        Thread.yield();
+      }
+      jpcap.breakLoop();
+    }
+  });
+  captureThread.setPriority(Thread.MIN_PRIORITY);//设置线程优先级
+  captureThread.start();
+}
 //停止捕获数据包
 public void stopCaptureThread() {
   captureThread = null;
@@ -185,28 +185,207 @@ public void stopCaptureThread() {
 
 ```java
 @Test
-    public void test() throws InterruptedException {
-        Captor captor = new Captor();
-//        String[] devices = captor.showDevice();
-        captor.chooseDevice(0);
-        captor.setFilter("tcp");//设置提取关键字
-        captor.capturePackets();//抓包
-        while(true){
-            System.out.println("开始抓包");
-            Thread.sleep(1000);
-            List<Packet> packets = captor.getPackets();//提取数据包
-            if(!packets.isEmpty()){
-                for (Packet packet : packets) {//显示数据包内容
-                    System.out.println(captor.showPacket(packet));
-                }
-                break;
-            }
-        }
-        System.out.println("抓包结束");
+public void test() throws InterruptedException {
+  Captor captor = new Captor();
+  //        String[] devices = captor.showDevice();
+  captor.chooseDevice(0);
+  captor.setFilter("tcp");//设置提取关键字
+  captor.capturePackets();//抓包
+  while(true){
+    System.out.println("开始抓包");
+    Thread.sleep(1000);
+    List<Packet> packets = captor.getPackets();//提取数据包
+    if(!packets.isEmpty()){
+      for (Packet packet : packets) {//显示数据包内容
+        System.out.println(captor.showPacket(packet));
+      }
+      break;
     }
+  }
+  System.out.println("抓包结束");
+}
 ```
 
-结果：
+抓取成功，结果：
 
 ![image-20210315211433345](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210315211433345.png)
+
+
+
+## 4.解析数据包
+
+在第2节中介绍到：`Packet`是所有其它数据包类的父类。因此我们针对Packet编写一个抽象类`AbstractPacket`，规范一些各类数据包统一的操作。
+
+```java
+package com.hyc.packet;
+
+import com.hyc.metadata.Layer;
+import jpcap.packet.Packet;
+import java.util.List;
+
+/**
+ * @author kol Huang
+ * @date 2021/3/12
+ */
+public abstract class AbstractPacket {
+
+    //数据包属于OSI模型的哪一层，默认为数据链路层。
+    public Layer layer = Layer.DATALINK_LAYER;
+    //协议名称
+    private String protocolName;
+    /**
+     * 抽象方法：验证数据包是否属于某个子类
+     * @param packet
+     * @return
+     */
+    public abstract boolean verify(Packet packet);
+
+    /**
+     * 抽象方法：对数据包进行解析
+     * @param packet
+     */
+    public abstract List<String> parse(Packet packet);
+
+    public String getProtocolName() {
+        return protocolName;
+    }
+
+    public void setProtocolName(String protocolName) {
+        this.protocolName = protocolName;
+    }
+}
+
+```
+
+
+
+仍旧以TCP数据包解析为例。假设我们通过setFilter()过滤，然后抓到了一个TCP数据包packet。首先从数据链路层开始分析，下图分别是802标准以及以太网的帧结构。
+
+![image-20210316183603904](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210316183603904.png)
+
+在jpcap中，对以太网数据包的封装是`EthernetPacket`类，主要内容有以下几项：
+
+1. 帧类型。标识以太帧处理完成之后将被发送到哪个上层协议进行处理。
+2. MAC地址。
+
+```java
+public byte[] dst_mac;
+public byte[] src_mac;
+public short frametype;
+```
+
+我们就按上面这三个字段解析以太网帧。首先新建一个`Ethernet`类表示以太网帧，并继承`AbstractPacket`。在其中实现verify方法和parse方法。
+
+jpcap为我们提供了以太网帧的封装类`EthernetPacket`，因此在verify方法中，我们只需判断当前的packet是否属于`EthernetPacket`类型即可。
+
+```java
+public boolean verify(Packet p){
+  return p.datalink instanceof EthernetPacket;
+}
+```
+
+在封装类`EthernetPacket`中，jpcap提供了若干方法用于访问数据包内容，我们就利用这些方法编写parse方法解析以太网帧：
+
+```java
+	public List<String> parse(Packet p){
+		List<String> parsedData = new ArrayList<String>();
+		if(!verify(p)) return null;
+		//获取jpcap封装的数据链路packet
+		ethp = (EthernetPacket)p.datalink;
+		parsedData.add("Frame Type: "+ethp.frametype);
+		parsedData.add("Source MAC Address: "+ethp.getSourceAddress());
+		parsedData.add("Destination MAC Address: "+ethp.getDestinationAddress());
+		return parsedData;
+	}
+```
+
+解析结果：
+
+![image-20210316193523892](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210316193523892.png)
+
+接下来解析IP包。创建IPv4类，继承`AbstractPacket`，同样的思路，用jpcap封装好的`IPPacket`实现IPv4数据包的verify和parse方法。
+
+```java
+public boolean verify(Packet p){
+  return p instanceof IPPacket && ((IPPacket) p).version == 4;
+}
+```
+
+```java
+public List<String> parse(Packet packet){
+		List<String> parsedData = new ArrayList<String>();
+
+		parsedData.clear();
+		if(!verify(packet)) return null;
+		final IPPacket ipv4p = (IPPacket)packet;
+		parsedData.add("Version: 4");
+		parsedData.add("Priority: "+ipv4p.priority);
+		parsedData.add("Throughput: "+ipv4p.t_flag);
+		parsedData.add("Reliability: "+ipv4p.r_flag);
+		parsedData.add("Length: "+ipv4p.length);//数据报长度，单位是字节
+		parsedData.add("Identification: "+ipv4p.ident);
+		parsedData.add("Don't Fragment: "+ipv4p.dont_frag);//不对数据报进行分片
+		parsedData.add("More Fragment: "+ipv4p.more_frag);//除了最后一片外，其他每个组成数据报的片都要把该比特置1。 
+		parsedData.add("Fragment Offset: "+ipv4p.offset);//数据报的偏移量
+		parsedData.add("Time To Live: "+ipv4p.hop_limit);//TTL
+		parsedData.add("Protocol: "+ipv4p.protocol);//协议字段
+		parsedData.add("Source IP: "+ipv4p.src_ip.getHostAddress());
+		parsedData.add("Destination IP: "+ipv4p.dst_ip.getHostAddress());
+		parsedData.add("Source Host Name: "+ipv4p.src_ip.getHostName());
+		parsedData.add("Destination Host Name: "+ipv4p.dst_ip.getHostName());
+		return parsedData;
+	}
+```
+
+IP数据报的内容众多，结构如下：
+
+![image-20210316192859961](/Users/huangyucai/Library/Application Support/typora-user-images/image-20210316192859961.png)
+
+解析结果：
+
+![image-20210316193546007](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210316193546007.png)
+
+最后解析TCP报文段。jpcap对TCP报文段的封装类是`TCPPacket`，TCP报文段结构如下所示：
+
+![image-20210316194225746](/Users/huangyucai/Library/Application Support/typora-user-images/image-20210316194225746.png)
+
+```java
+public boolean verify(Packet p){
+		return p instanceof TCPPacket;
+	}
+	
+	public String getProtocolName(){
+		return "TCP";
+	}
+	
+	public List<String> parse(Packet p){
+		List<String> parsedData = new ArrayList<String>();
+
+		if(!verify(p)) return null;
+
+		TCPPacket tcp = (TCPPacket)p;
+
+		parsedData.add("Source Port: "+tcp.src_port);
+		parsedData.add("Destination Port: "+tcp.dst_port);
+		parsedData.add("Sequence Number: "+tcp.sequence);
+		parsedData.add("Ack Number: "+tcp.ack_num);
+		parsedData.add("URG Flag: "+tcp.urg);
+		parsedData.add("ACK Flag: "+tcp.ack);
+		parsedData.add("PSH Flag: "+tcp.psh);
+		parsedData.add("RST Flag: "+tcp.rst);
+		parsedData.add("SYN Flag: "+tcp.syn);
+		parsedData.add("FIN Flag: "+tcp.fin);
+		parsedData.add("Window Size: "+tcp.window);
+
+		return parsedData;
+	}
+```
+
+TCP报文段应该非常熟悉了，不再解释。解析结果如下：
+
+![image-20210316194333948](/Users/huangyucai/Library/Application Support/typora-user-images/image-20210316194333948.png)
+
+至此一个TCP报文段解析完毕。
+
+再按同样的方法编写ARP、IPv6、UDP、HTTP等常见协议，就能基本实现抓包和解析功能。
 
