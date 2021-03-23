@@ -22,15 +22,13 @@ make
 make install
 ```
 
-然后到`usr/local/lib`目录下就能找到名为`libpcap.dylib`文件，然后执行以下命令将其绑定到Java的动态链接库：
+然后到`usr/local/lib`目录下就能找到名为`libpcap.dylib`文件，然后执行以下命令(MAC环境)将其绑定到Java的动态链接库：
 
 ```shell
 export JAVA_LIBRARY_PATH=usr/local/lib
 ```
 
 libpcap库安装结束。接下来安装jpcap，首先到https://github.com/jpcap/jpcap 下载源码包，再按以下指示完成步骤：（摘录自https://sites.google.com/site/sipinspectorsite/download/jpcap）
-
-**<Mac OS X>** 
 
 1. Both Java and libpcap are preinstalled on Mac OS X. 
    If any of them is missing you should be able to install them from the Mac OS X install DVD. 
@@ -43,7 +41,7 @@ libpcap库安装结束。接下来安装jpcap，首先到https://github.com/jpca
 7. Copy *'**[Jpcap extracted directory]/******lib/\*jpcap.jar**' to '*/Library/Java/Extensions/*'
    Or, place '*jpcap.jar*' to any directory and include it to your CLASSPATH.
 
-如果执行第5步失败了，也可以直接将本项目`resources`目录下的`libjpcap.jnilib`文件复制到`/Library/Java/Extensions/`目录下，再将`jpcap.jar`包复制到`jre/lib/ext`目录下让扩展类加载器加载，或者放到自己设定的类路径下由系统类加载器加载。
+如果执行第5步失败了，也可以直接将本项目`resources`目录下的`libjpcap.jnilib`文件（windows下是dll文件）复制到`/Library/Java/Extensions/`目录下，再将`jpcap.jar`包复制到`jre/lib/ext`目录下让扩展类加载器加载，或者放到自己设定的类路径下由系统类加载器加载。
 
 测试环境：
 
@@ -315,7 +313,6 @@ public boolean verify(Packet p){
 public List<String> parse(Packet packet){
 		List<String> parsedData = new ArrayList<String>();
 
-		parsedData.clear();
 		if(!verify(packet)) return null;
 		final IPPacket ipv4p = (IPPacket)packet;
 		parsedData.add("Version: 4");
@@ -339,7 +336,7 @@ public List<String> parse(Packet packet){
 
 IP数据报的内容众多，结构如下：
 
-![image-20210316192859961](/Users/huangyucai/Library/Application Support/typora-user-images/image-20210316192859961.png)
+![image-20210316192859961](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210316192859961.png)
 
 解析结果：
 
@@ -347,7 +344,7 @@ IP数据报的内容众多，结构如下：
 
 最后解析TCP报文段。jpcap对TCP报文段的封装类是`TCPPacket`，TCP报文段结构如下所示：
 
-![image-20210316194225746](/Users/huangyucai/Library/Application Support/typora-user-images/image-20210316194225746.png)
+![image-20210316194225746](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210316194225746.png)
 
 ```java
 public boolean verify(Packet p){
@@ -383,9 +380,243 @@ public boolean verify(Packet p){
 
 TCP报文段应该非常熟悉了，不再解释。解析结果如下：
 
-![image-20210316194333948](/Users/huangyucai/Library/Application Support/typora-user-images/image-20210316194333948.png)
+![image-20210316194333948](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210316194333948.png)
 
 至此一个TCP报文段解析完毕。
 
 再按同样的方法编写ARP、IPv6、UDP、HTTP等常见协议，就能基本实现抓包和解析功能。
+
+
+
+## 5. 局域网数据嗅探
+
+大致了解了JPCAP的使用方式后，我打算参考[项目](https://github.com/hustakin/jpcap-mitm)开发基于局域网嗅探实现点对点MITM攻击的WEB项目（前后端分离），实现：
+
+1. 局域网ARP Spoofing；
+2. 嗅探指定终端的上/下行链路数据包；
+3. 数据包内容分析及前端可视化。
+
+前端我直接采用了该项目的前端模块（Angular6 + Echarts），此项目实现了前后端分离，因此我只需要编写后端模块为前端接口提供JSON数据即可，该前端模块的接口调用方式如下：
+
+![image-20210323210343382](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210323210343382.png)
+
+
+
+### 5.1 jpcap再封装
+
+原本的jpcap包访问封装性较差，数据成员可以直接被外部访问，因此我在此对其加一层封装，提高其安全性并添加可扩展性。代码相对简单，只需要对照着jpcap中的各个类编写相应的封装类即可。数据包类的继承关系如下图所示：
+
+![image-20210323211551426](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210323211551426.png)
+
+
+
+### 5.2 替换Dao
+
+该[项目](https://github.com/hustakin/jpcap-mitm)采用MongoDB作为数据存储引擎，我将其更换成了Redis。如果我们使用默认的`Redis`配置，由于springboot只提供了`RedisTemplate<Object, Object>`和`StringRedisTemplate`两种模版，因此只支持`string`类型的序列化器。但是我们需要将对象序列化到redis中，所以需要自定义`redisTemplate`，并配置序列化器。
+
+在Springboot 2.x中将默认的Redis客户端更换为`lettuce`，因此在配置`redis`的时候需要格外注意。`lettuce`的自定义方式与`jedis`有些不同，首先在`config`包下创建`RedisConfig`类，该类需继承`CachingConfigurerSupport`类。然后编写方法注入Bean到IOC容器中：
+
+```java
+/**
+ * 实例化 RedisTemplate 对象
+ *
+ * @return
+ */
+@Bean(name = "redisTemplate")
+public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory redisConnectionFactory) {
+  RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
+  redisTemplate.setConnectionFactory(redisConnectionFactory);
+  //配置序列化方式
+  //JSON序列化配置
+  Jackson2JsonRedisSerializer jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer(Object.class);
+  redisTemplate.setKeySerializer(new StringRedisSerializer());
+  redisTemplate.setHashKeySerializer(new StringRedisSerializer());
+  redisTemplate.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
+  redisTemplate.setValueSerializer(jackson2JsonRedisSerializer);//设置value的序列化器为jackson，这样能够保证对象被成功序列化
+  redisTemplate.afterPropertiesSet();
+  return redisTemplate;
+}
+```
+
+**需要注意的是：被序列化的类需要实现`Serializable`接口。**
+
+完成以上步骤就能直接通过IOC容器获取自定义的`redisTemplate`模版了。我们将其封装到`RedisMapper`类中，统一处理`dao`的各种操作。
+
+```java
+/**
+ * @author kol Huang
+ * @date 2021/3/22
+ */
+@Component
+public class RedisMapper {
+
+    @Resource
+    @Qualifier("redisTemplate")
+    private RedisTemplate<String, Object> redisTemplate;
+
+    public void setRedisTemplate(RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
+
+    /**
+     * 普通缓存获取
+     * @param key 键
+     * @return 值
+     */
+    public Object get(KeyPrefix prefix, String key){
+        String realKey = prefix.getPrefix().concat(key);
+        return redisTemplate.opsForValue().get(key);
+    }
+
+    /**
+     * 普通缓存放入
+     * @param key 键
+     * @param value 值
+     * @return true成功 false失败
+     */
+    public boolean set(KeyPrefix prefix, String key,Object value) {
+        try {
+            String realKey = prefix.getPrefix().concat(key);
+            redisTemplate.opsForValue().set(realKey, value);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+
+    }
+
+    /**
+     * 普通缓存放入并设置时间
+     * @param key 键
+     * @param value 值
+     * @param time 时间(秒) time要大于0 如果time小于等于0 将设置无限期
+     * @return true成功 false 失败
+     */
+    public boolean set(KeyPrefix prefix, String key,Object value,long time){
+        try {
+            if(time > 0){
+                String realKey = prefix.getPrefix().concat(key);
+                redisTemplate.opsForValue().set(realKey, value, time, TimeUnit.SECONDS);
+            }else{
+                set(prefix, key, value);
+            }
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 删除缓存
+     * @param key 可以传一个值或多个
+     */
+    public void del(KeyPrefix prefix, String ... key){
+        if(key != null && key.length > 0){
+            if(key.length == 1){
+                String realKey = prefix.getPrefix().concat(key[0]);
+                redisTemplate.delete(realKey);
+            }else{
+                //加前缀
+                Collection<String> keys = new ArrayList<>();
+                for (String s : key) {
+                    keys.add(prefix.getPrefix().concat(s));
+                }
+                redisTemplate.delete(keys);
+            }
+        }
+    }
+
+}
+
+```
+
+### 5.3 AttackConfig
+
+由于ARP spoof的需求，我们需要获取到以下信息：
+
+* 本地IP/MAC地址
+* 目标IP/MAC地址
+* 网关IP/MAC地址
+
+因此我们将以上信息封装到一个配置类中，即`AttackConfig`。这些配置信息中的`本地IP/MAC地址`信息可以在web项目初始化的时候就自动从设备上获取，因此我们在`AttackService`类（位于`service`层）中编写初始化方法：
+
+```java
+@PostConstruct
+public void initDefaultConfig(){
+  this.initDeviceList();
+
+  AttackConfig config = (AttackConfig) redisMapper.get(AttackKey.config, "config");
+  if(config == null){
+    ...
+
+      //获取本地IP和MAC地址
+      Map<String, String> addrs = NetworkUtils.getLocalAddress();
+    if(addrs == null){
+      addrs = NetworkUtils.getPublicAddress();
+    }
+    if(addrs != null){
+      srcIP = addrs.get("ip");
+      srcMAC = addrs.get("mac");
+    }else{
+      logger.error("can not acquire source IP/MAC address");
+    }
+    config = new AttackConfig();
+    config.setDeviceName(null);
+    ...
+      config.setGateMac(gateMAC);
+    config.setGateIP(gateIP);
+    redisMapper.set(AttackKey.config, "config", config);
+  }
+
+}
+```
+
+在方法上加`@PostConstruct`注解可以让这个方法在web容器启动并初始化Servlet的时候被执行，在Spring IOC容器中是通过`CommonAnnotationBeanPostProcessor`实现的。通常我们会是在Spring框架中使用到@PostConstruct注解 该注解的方法在整个Bean初始化中的执行顺序：
+
+`Constructor`(构造方法) -> `@Autowired`(依赖注入) -> `@PostConstruct`(注释的方法)
+
+### 5.4 获取网卡列表
+
+编写`AttackController`，获取网卡列表，并序列化返回给前端。
+
+```java
+/**
+ * @author kol Huang
+ * @date 2021/3/22
+ */
+@Controller
+@RequestMapping("attack")
+public class AttackController {
+
+    @Autowired
+    private AttackService attackService;
+
+    @GetMapping(value = "/getDeviceList")
+    @ResponseBody
+    public List<NetWorkInterface> getDeviceList(){
+        List<NetWorkInterface> devices = new ArrayList<>();
+        NetworkInterface[] interfaces = attackService.getDevices();
+        if(interfaces != null){
+            for (NetworkInterface networkInterface : interfaces) {
+                NetWorkInterface ni = new NetWorkInterface();
+                ni.setName(networkInterface.name);
+                ni.setDescription(networkInterface.description);
+                ni.setDataLinkName(networkInterface.datalink_name);
+                ni.setDataLinkDescription(networkInterface.datalink_description);
+                devices.add(ni);
+            }
+        }
+        return devices;
+    }
+}
+
+```
+
+
+
+启动项目，发起请求：`http://localhost:8081/attack/getDeviceList`，结果如下
+
+![image-20210323214332832](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210323214332832.png)
 
