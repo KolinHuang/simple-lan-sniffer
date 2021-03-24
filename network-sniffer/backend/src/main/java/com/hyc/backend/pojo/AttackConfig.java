@@ -15,15 +15,15 @@ public class AttackConfig implements Serializable {
 
     private String deviceName;
 
-    private String dstIP;
+    private String destIp;
 
-    private String dstMAC;
+    private String destMac;
 
-    private String srcIP;
+    private String srcIp;
 
-    private String srcMAC;
+    private String srcMac;
 
-    private String gateIP;
+    private String gateIp;
 
     private String gateMac;
 
@@ -45,44 +45,44 @@ public class AttackConfig implements Serializable {
         this.deviceName = deviceName;
     }
 
-    public String getDstIP() {
-        return dstIP;
+    public String getDestIp() {
+        return destIp;
     }
 
-    public void setDstIP(String dstIP) {
-        this.dstIP = dstIP;
+    public void setDestIp(String destIp) {
+        this.destIp = destIp;
     }
 
-    public String getDstMAC() {
-        return dstMAC;
+    public String getDestMac() {
+        return destMac;
     }
 
-    public void setDstMAC(String dstMAC) {
-        this.dstMAC = dstMAC;
+    public void setDestMac(String destMac) {
+        this.destMac = destMac;
     }
 
-    public String getSrcIP() {
-        return srcIP;
+    public String getSrcIp() {
+        return srcIp;
     }
 
-    public void setSrcIP(String srcIP) {
-        this.srcIP = srcIP;
+    public void setSrcIp(String srcIp) {
+        this.srcIp = srcIp;
     }
 
-    public String getSrcMAC() {
-        return srcMAC;
+    public String getSrcMac() {
+        return srcMac;
     }
 
-    public void setSrcMAC(String srcMAC) {
-        this.srcMAC = srcMAC;
+    public void setSrcMac(String srcMac) {
+        this.srcMac = srcMac;
     }
 
-    public String getGateIP() {
-        return gateIP;
+    public String getGateIp() {
+        return gateIp;
     }
 
-    public void setGateIP(String gateIP) {
-        this.gateIP = gateIP;
+    public void setGateIp(String gateIp) {
+        this.gateIp = gateIp;
     }
 
     public String getGateMac() {

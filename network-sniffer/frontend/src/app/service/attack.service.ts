@@ -17,7 +17,7 @@ export class AttackService {
     }
 
     isDeviceOpened(): Observable<Result> {
-        return this.http.get<Result>(`${'/api/isDeviceOpened'}`).pipe(
+        return this.http.get<Result>(`${'/attack/isDeviceOpened'}`).pipe(
             switchMap(data => {
                 return of(data);
             }),
@@ -30,7 +30,7 @@ export class AttackService {
     }
 
     getAttackConfig(): Observable<AttackConfig> {
-        return this.http.get<Result>(`${'/api/getAttackConfig'}`).pipe(
+        return this.http.get<Result>(`${'/attack/getAttackConfig'}`).pipe(
             switchMap(data => {
                 let config: AttackConfig = data.result;
                 return of(config);
@@ -44,7 +44,7 @@ export class AttackService {
     }
 
     updateConfigAndOpenDevice(req: AttackConfig): Observable<any> {
-        return this.http.post<Result>(`${'/api/updateConfigAndOpenDevice'}`, req).pipe(
+        return this.http.post<Result>(`${'/attack/updateConfigAndOpenDevice'}`, req).pipe(
             switchMap(data => of(data.result)),
             catchError((err) => {
                 console.error(err);
@@ -77,7 +77,7 @@ export class AttackService {
     }
 
     isAttacking(): Observable<Result> {
-        return this.http.get<Result>(`${'/api/isAttacking'}`).pipe(
+        return this.http.get<Result>(`${'/attack/isAttacking'}`).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);
@@ -88,7 +88,7 @@ export class AttackService {
     }
 
     getAttackStatistic(): Observable<AttackStatistic> {
-        return this.http.get<AttackStatistic>(`${'/api/getAttackStatistic'}`).pipe(
+        return this.http.get<AttackStatistic>(`${'/attack/getAttackStatistic'}`).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);
@@ -99,7 +99,7 @@ export class AttackService {
     }
 
     getDevicelist(): Observable<NetworkInterface[]> {
-        return this.http.get<NetworkInterface[]>(`${'/api/getDevicelist'}`).pipe(
+        return this.http.get<NetworkInterface[]>(`${'/attack/getDeviceList'}`).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);

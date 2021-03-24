@@ -1,15 +1,19 @@
 package com.hyc.backend.controller;
 
+import com.hyc.backend.dao.RedisMapper;
+import com.hyc.backend.dto.AttackStatisticDTO;
+import com.hyc.backend.dto.ResultDTO;
 import com.hyc.backend.packet.NetWorkInterface;
+import com.hyc.backend.pojo.AttackConfig;
+import com.hyc.backend.redis.AttackKey;
 import com.hyc.backend.service.AttackService;
 import jpcap.NetworkInterface;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.Resource;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +27,10 @@ public class AttackController {
 
     @Autowired
     private AttackService attackService;
+    @Resource
+    private RedisMapper redisMapper;
+
+    private boolean deviceOpened = false;
 
     @GetMapping(value = "/getDeviceList")
     @ResponseBody
@@ -40,5 +48,82 @@ public class AttackController {
             }
         }
         return devices;
+    }
+
+    @GetMapping("/isDeviceOpened")
+    @ResponseBody
+    public ResultDTO isDeviceOpened(){
+        return new ResultDTO(deviceOpened);
+    }
+
+    @PostMapping("/updateConfigAndOpenDevice")
+    @ResponseBody
+    public ResultDTO updateConfigAndOpenDevice(@RequestBody AttackConfig req) throws IOException {
+        //如果攻击配置已经初始化完毕
+        if(req.getSrcIp() != null  && req.getSrcMac() != null &&
+            req.getDestIp() != null && req.getDestMac() != null &&
+            req.getGateMac() != null && req.getGateMac() != null &&
+            req.getFilterDomain() != null){
+            req.setSrcMac(req.getSrcMac().replace('-', ':').toLowerCase());
+            req.setDestMac(req.getDestMac().replace('-', ':').toLowerCase());
+            req.setGateMac(req.getGateMac().replace('-', ':').toLowerCase());
+
+            attackService.updateConfigAndOpenDevice(req);
+            deviceOpened = true;
+            AttackConfig config = (AttackConfig) redisMapper.get(AttackKey.config, "config");
+            if(config != null){
+                req.setId(config.getId());
+            }
+
+            redisMapper.set(AttackKey.config, "config", req);
+            return new ResultDTO(true);
+        }else{
+            return new ResultDTO(false);
+        }
+    }
+
+    /**
+     * 返回拦截的数据包的统计信息
+     * @return
+     */
+    @GetMapping("/getAttackStatistic")
+    @ResponseBody
+    public AttackStatisticDTO getAttackStatistic(){
+        AttackStatisticDTO dto = new AttackStatisticDTO();
+
+        dto.setUpStreamNum(attackService.getUpStreamNum());
+        dto.setDownStreamNum(attackService.getDownStreamNum());
+
+        dto.setUpArpNum(attackService.getUpArpNum());
+        dto.setDownArpNum(attackService.getDownArpNum());
+
+        dto.setUpIcmpNum(attackService.getUpIcmpNum());
+        dto.setDownIcmpNum(attackService.getDownIcmpNum());
+
+        dto.setUpTcpNum(attackService.getUpTcpNum());
+        dto.setDownTcpNum(attackService.getDownTcpNum());
+
+        dto.setUpUdpNum(attackService.getUpUdpNum());
+        dto.setDownUdpNum(attackService.getDownUdpNum());
+
+        return dto;
+    }
+
+    @GetMapping("/isAttacking")
+    @ResponseBody
+    public ResultDTO isAttacking(){
+        ResultDTO dto = new ResultDTO();
+        dto.setResult(attackService.isAttacking());
+        return dto;
+    }
+
+    @GetMapping("/getAttackConfig")
+    @ResponseBody
+    public ResultDTO getAttackConfig(){
+        AttackConfig config = (AttackConfig) redisMapper.get(AttackKey.config, "config");
+        if(config == null){
+            config = new AttackConfig();
+        }
+        return new ResultDTO(config);
     }
 }

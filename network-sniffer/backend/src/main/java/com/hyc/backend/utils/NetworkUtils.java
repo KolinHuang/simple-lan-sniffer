@@ -2,6 +2,7 @@ package com.hyc.backend.utils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.StringUtils;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -145,6 +146,7 @@ public class NetworkUtils {
                 Map<String, String> info = new HashMap<>();
                 info.put("hostname", inetAddress.getHostName());
                 info.put("ip", inetAddress.getHostAddress());
+                info.put("mac", srcMAC);
                 info.put("ipnet", inetAddressTypeName(inetAddress));
                 info.put("os", System.getProperty("os.name"));
                 info.put("cpu-arch", System.getProperty("os.arch"));
@@ -161,6 +163,19 @@ public class NetworkUtils {
 
     private static String inetAddressTypeName(InetAddress inetAddress) {
         return (inetAddress instanceof Inet4Address) ? "ipv4" : "ipv6";
+    }
+
+    public static byte[] stomac(String s){
+        if(StringUtils.isEmpty(s))  return null;
+
+        byte[] mac = new byte[]{(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00};
+        String[] s1 = s.split(":");
+        if (s1 == null || s1.length == 0)
+            s1 = s.split("-");
+        for (int x = 0; x < s1.length; x++) {
+            mac[x] = (byte) ((Integer.parseInt(s1[x], 16)) & 0xff);
+        }
+        return mac;
     }
 
 

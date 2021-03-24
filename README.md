@@ -620,3 +620,25 @@ public class AttackController {
 
 ![image-20210323214332832](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210323214332832.png)
 
+
+
+### 5.5 接口对接测试
+
+既然已经编写好了一个接口，那么我们就尝试着跟前端模块对接一下，防止项目庞大后对接问题的堆积。
+
+修改前端模块的`attack.service.ts`文件，将`/getDeviceList`请求路径改写成我们自己的请求路径：
+
+![image-20210324204211899](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210324204211899.png)
+
+分别启动angular项目和springboot项目，注意：这里应当用`proxy`的方式启动前端项目，将`localhost:8081`作为代理处理请求。
+
+![image-20210324204458217](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210324204458217.png)
+
+结果：前端成功获取到了网卡名称数据。
+
+![image-20210324204611650](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210324204611650.png)
+
+
+
+### 5.6 JpcapCaptor
+
