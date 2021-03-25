@@ -1,5 +1,6 @@
 package com.hyc.backend.dao;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hyc.backend.redis.KeyPrefix;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -31,9 +32,10 @@ public class RedisMapper {
      * @param key 键
      * @return 值
      */
-    public Object get(KeyPrefix prefix, String key){
+    public Object get(KeyPrefix prefix, String key, Class<?> clazz){
         String realKey = prefix.getPrefix().concat(key);
-        return redisTemplate.opsForValue().get(key);
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.convertValue(redisTemplate.opsForValue().get(realKey), clazz);
     }
 
     /**
@@ -94,6 +96,23 @@ public class RedisMapper {
                 redisTemplate.delete(keys);
             }
         }
+    }
+
+    /**
+     * 如果不存在这个key就设置他
+     * @param key
+     * @param value
+     * @return
+     */
+    public Boolean setnx(KeyPrefix prefix, String key, Object value){
+        try{
+            String realKey = prefix.getPrefix().concat(key);
+            return redisTemplate.opsForValue().setIfAbsent(realKey, value);
+        }catch (Exception e){
+            e.printStackTrace();
+            return Boolean.FALSE;
+        }
+
     }
 
 }

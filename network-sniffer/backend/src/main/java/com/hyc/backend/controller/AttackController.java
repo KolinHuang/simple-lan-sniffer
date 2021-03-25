@@ -8,6 +8,8 @@ import com.hyc.backend.pojo.AttackConfig;
 import com.hyc.backend.redis.AttackKey;
 import com.hyc.backend.service.AttackService;
 import jpcap.NetworkInterface;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +26,8 @@ import java.util.List;
 @Controller
 @RequestMapping("attack")
 public class AttackController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AttackController.class);
 
     @Autowired
     private AttackService attackService;
@@ -70,7 +74,7 @@ public class AttackController {
 
             attackService.updateConfigAndOpenDevice(req);
             deviceOpened = true;
-            AttackConfig config = (AttackConfig) redisMapper.get(AttackKey.config, "config");
+            AttackConfig config = (AttackConfig) redisMapper.get(AttackKey.config, "config", AttackConfig.class);
             if(config != null){
                 req.setId(config.getId());
             }
@@ -117,10 +121,18 @@ public class AttackController {
         return dto;
     }
 
+    @GetMapping("/startAttack")
+    @ResponseBody
+    public ResultDTO startAttacking(){
+        logger.info("start attacking");
+        attackService.attack();
+        return new ResultDTO(true);
+    }
+
     @GetMapping("/getAttackConfig")
     @ResponseBody
     public ResultDTO getAttackConfig(){
-        AttackConfig config = (AttackConfig) redisMapper.get(AttackKey.config, "config");
+        AttackConfig config = (AttackConfig) redisMapper.get(AttackKey.config, "config", AttackConfig.class);
         if(config == null){
             config = new AttackConfig();
         }

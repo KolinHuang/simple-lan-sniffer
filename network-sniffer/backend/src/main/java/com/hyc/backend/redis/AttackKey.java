@@ -10,5 +10,5 @@ public class AttackKey extends BasePrefix  {
         super(prefix);
     }
 
-    public static AttackKey config = new AttackKey("conf");
+    public static AttackKey config = new AttackKey("conf_");
 }
