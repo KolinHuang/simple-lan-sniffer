@@ -4,10 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
+import java.net.*;
 import java.util.*;
 
 /**
@@ -178,6 +175,19 @@ public class NetworkUtils {
         return mac;
     }
 
+    public static Set<String> lookup(String domain){
+        if(!StringUtils.hasLength(domain))  return null;
+        Set<String> inetAddresses = new HashSet<>();
+        try {
+            InetAddress[] arr = InetAddress.getAllByName(domain);
+            for (InetAddress inetAddress : arr) {
+                inetAddresses.add(inetAddress.getHostAddress());
+            }
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
+        return inetAddresses;
+    }
 
 
 }

