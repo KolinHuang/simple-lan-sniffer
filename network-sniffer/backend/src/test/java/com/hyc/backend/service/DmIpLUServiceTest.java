@@ -19,11 +19,7 @@ public class DmIpLUServiceTest {
 
     @Test
     public void test(){
-        dmIpLookUpService.ipLookUp(1010, "www.baidu.com");
-        Set<String> allIps = dmIpLookUpService.getAllIps(1010);
-        for (String allIp : allIps) {
-            System.out.println(allIp);
-        }
+
     }
 
 

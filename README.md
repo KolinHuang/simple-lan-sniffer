@@ -649,7 +649,7 @@ public jpcap.JpcapSender getJpcapSenderInstance()
 
 ![image-20210325192544852](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210325192544852.png)
 
-这里遇到了一个问题，我在使用redisTemplate从redis从get配置信息的时候报错，如下：
+这里遇到了一个问题，我在使用redisTemplate从redisget配置信息的时候报错，如下：
 
 ```shell
 java.lang.ClassCastException: java.util.LinkedHashMap cannot be cast to com.XXX.XXX.xxClass
@@ -863,4 +863,73 @@ private void receiveAndForwardingPacket(){
   executor.execute(task);
 }
 ```
+
+接下来测试欺骗能否成功，运行程序，并访问请求`attack/startAttack`，此时服务端会开启两个子线程：
+
+1. 一个线程用于发送欺骗包给目标主机和网关，进行欺骗。
+2. 一个线程从网卡上抓包，看看能否抓到目标主机访问`filterDomain`的数据包。
+
+首先在目标主机上查看ARP表，判断是否欺骗成功：
+
+![image-20210329191331592](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210329191331592.png)
+
+如上图所示，已经成功将目标主机的网关MAC地址修改为了本地主机的MAC地址，因此目标主机发送的数据包都会经过本地主机的网卡。接下来我们在目标主机上访问`filterDomain`，并在服务端开启第二个线程抓包。结果失败了，压根没抓到目标主机的数据包，为什么呢？检查发现目标主机已经不能访问Internet了，发不出包。
+
+既然MAC地址已经是本地主机了，说明目标主机的数据包应该能够发送到本地主机的网卡上，有可能是本地主机的网卡没开启IP转发，因为即使数据包接收到了，程序也调用了转发方法，但是底层的设备不支持IP转发，目标主机仍旧是无法访问Internet的。
+
+所以我们尝试在本地主机上开启IP转发功能：
+
+1. 在MAC上：
+   1. 开启IP转发：sudo sysctl -w net.inet.ip.forwarding=1
+   2. 查看IP转发已开启（为1）：sudo sysctl -a | grep net.inet.ip.forwarding
+
+2. 在windows上：
+   1. 开启IP转发：以管理员身份打开注册表编辑器，定位注册项HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/Services/Tcpip/Parameters，选择项目IPEnableRouter并修改数值为1
+
+![image-20210329192456978](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210329192456978.png)
+
+本地主机IP转发开启成功，继续测试：在目标主机上`ping www.baidu.com`，抓到一个从网关发到目标主机的ICMP数据包，我们把它转存入Redis：
+
+![image-20210329193000045](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210329193000045.png)
+
+至此基本的攻击算是成功了。
+
+为了后面的数据包分析功能，我决定把数据包存在redis的list结构中，list集合的名称按`batch_id`命名，list中的value就是每个序列化后的数据包实体。
+
+开放攻击，查看前端数据统计，成功抓到了许多数据包。但是很明显有一个问题：只有下行的数据包被抓到了，上行的数据包没有被抓到。
+
+![image-20210329204233419](/Users/huangyucai/Library/Application Support/typora-user-images/image-20210329204233419.png)
+
+我感觉是本地主机开了IP转发的原因，网卡在接收到目标主机访问百度的数据包后，进行IP转发，把源MAC地址修改为了本地主机的MAC地址，然后将数据包转发给网关，所以当数据包的MAC地址为本地主机的MAC地址时，本程序将其过滤掉了。看看问题代码:
+
+```java
+//如果这个数据包的源IP地址是目标主机的IP地址，那么说明是上行链路的数据包
+if(ipPacket.src_ip.getHostAddress().equals(config.getDestIp())){
+  //如果这个数据包的源MAC地址是本地主机的MAC地址，说明这是我自己发送的数据包，需要忽略
+  if(ipPacket.datalink instanceof EthernetPacket){
+    EthernetPacket eth = (EthernetPacket) ipPacket.datalink;
+    String macFromCap = eth.getSourceAddress();
+    if(macFromCap.equalsIgnoreCase(config.getDestMac())){//卡在这了
+      savePacket(ipPacket, true);
+    }
+  }
+  forward(ipPacket, gateMACBT);
+}
+```
+
+将MAC地址的限制放开，因为在外层if逻辑中已经明确判断出IP地址是目标主机的IP地址了，那么就不用MAC地址过滤了，把最内层if逻辑删除。重新抓包：抓到了上行链路的数据包，基本上是ping 1个，回应2个。
+
+![image-20210329213112283](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210329213112283.png)
+
+
+
+#### 5.5.3 停止攻击
+
+点击attack stop按钮后，会向服务器发送请求`/attack/stopAttack`。将标识位`attacking`置为`false`，并返回`batch_id`到前端。前端随即将`batch_id`作为参数向服务器发起请求`analyse/analysisByBatchId?batchId=1`，开始分析数据包。
+
+
+
+
+
+### 5.6 数据包分析
 

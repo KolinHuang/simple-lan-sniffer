@@ -189,5 +189,11 @@ public class NetworkUtils {
         return inetAddresses;
     }
 
+    public static String bytesToIp(byte[] src){
+        if(src == null && src.length == 0)  return null;
+        return (src[0] & 0xff) + "." + (src[1] & 0xff) + "." + (src[2] & 0xff)
+                + "." + (src[3] & 0xff);
+    }
+
 
 }

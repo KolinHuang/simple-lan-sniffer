@@ -129,6 +129,14 @@ public class AttackController {
         return new ResultDTO(true);
     }
 
+    @GetMapping("/stopAttack")
+    @ResponseBody
+    public ResultDTO stopAttacking(){
+        logger.info("stop attacking");
+        Integer batchId = attackService.stopAttack();
+        return new ResultDTO(batchId);
+    }
+
     @GetMapping("/getAttackConfig")
     @ResponseBody
     public ResultDTO getAttackConfig(){

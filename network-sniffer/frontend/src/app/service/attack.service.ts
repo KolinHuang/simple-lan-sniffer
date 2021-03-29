@@ -55,7 +55,7 @@ export class AttackService {
     }
 
     startAttack(): Observable<Result> {
-        return this.http.get<Result>(`${'/api/startAttack'}`).pipe(
+        return this.http.get<Result>(`${'/attack/startAttack'}`).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);
@@ -66,7 +66,7 @@ export class AttackService {
     }
 
     stopAttack(): Observable<Result> {
-        return this.http.get<Result>(`${'/api/stopAttack'}`).pipe(
+        return this.http.get<Result>(`${'/attack/stopAttack'}`).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);
@@ -110,7 +110,7 @@ export class AttackService {
     }
 
     getDumpRecords(): Observable<DumpRecord[]> {
-        return this.http.get<DumpRecord[]>(`${'/api/getDumpRecords'}`).pipe(
+        return this.http.get<DumpRecord[]>(`${'/attack/getDumpRecords'}`).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);
@@ -124,7 +124,7 @@ export class AttackService {
         let req = {
             "batchId": batchId
         };
-        return this.http.post<Result>(`${'/api/deleteAttackHis'}`, req).pipe(
+        return this.http.post<Result>(`${'/attack/deleteAttackHis'}`, req).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);

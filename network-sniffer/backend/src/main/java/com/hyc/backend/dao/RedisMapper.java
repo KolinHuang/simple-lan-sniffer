@@ -115,4 +115,39 @@ public class RedisMapper {
 
     }
 
+    /**
+     * 用于将数据存入Set
+     * @param prefix
+     * @param name
+     * @param value
+     * @return
+     */
+    public Long addToList(KeyPrefix prefix, String name,  Object value){
+        try{
+            String realName = prefix.getPrefix().concat(name);
+            return redisTemplate.opsForList().rightPush(realName,value);
+        }catch (Exception e){
+            e.printStackTrace();
+            return 0L;
+        }
+    }
+
+    /**
+     * 获取redis列表中全部的元素
+     * @param prefix
+     * @param name
+     * @return
+     */
+    public Object getFromList(KeyPrefix prefix, String name){
+        try{
+            String realName = prefix.getPrefix().concat(name);
+            return redisTemplate.opsForList().range(realName, 0, -1);
+        }catch (Exception e){
+            e.printStackTrace();
+            return 0L;
+        }
+    }
+
+
+
 }

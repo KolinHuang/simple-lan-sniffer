@@ -12,4 +12,5 @@ public class AttackKey extends BasePrefix  {
 
     public static AttackKey config = new AttackKey("conf_");
     public static AttackKey domainip = new AttackKey("domainip_");
+    public static AttackKey cap_packet = new AttackKey("cappacket_");
 }

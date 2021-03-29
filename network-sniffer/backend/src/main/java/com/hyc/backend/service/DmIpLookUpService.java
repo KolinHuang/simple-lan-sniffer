@@ -28,7 +28,7 @@ public class DmIpLookUpService {
     @Qualifier("redisMapper")
     private RedisMapper redisMapper;
 
-    public void ipLookUp(int batchId, String filterDomain){
+    public void ipLookUp(Integer batchId, String filterDomain){
         if(!StringUtils.hasLength(filterDomain))    return;
         //先清空该批次的domain ip
         redisMapper.del(AttackKey.domainip, String.valueOf(batchId));
@@ -42,7 +42,7 @@ public class DmIpLookUpService {
         redisMapper.set(AttackKey.domainip, String.valueOf(batchId), ips);
     }
 
-    public Set<String> getAllIps(int batchId){
+    public Set<String> getAllIps(Integer batchId){
         return (Set<String>) redisMapper.get(AttackKey.domainip, String.valueOf(batchId), Set.class);
     }
 }
