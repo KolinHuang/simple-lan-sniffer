@@ -2,7 +2,7 @@ package com.hyc.backend.service;
 
 import com.hyc.backend.dao.RedisMapper;
 import com.hyc.backend.pojo.AttackConfig;
-import com.hyc.backend.pojo.CapturedPacket;
+import com.hyc.backend.pojo.TCPCapturedPacket;
 import com.hyc.backend.redis.AttackKey;
 import com.hyc.backend.redis.CommonKey;
 import com.hyc.backend.utils.NetworkUtils;
@@ -360,40 +360,42 @@ public class AttackService {
         }else{
             downStreamNum++;
         }
-        CapturedPacket capturedPacket = new CapturedPacket();
-        capturedPacket.setUpStream(isUpstream);
-        capturedPacket.setBatchId(batchId);
-        capturedPacket.setStartAttackTime(startAttackTimeStamp);
+
         if(packet instanceof TCPPacket){
+            TCPCapturedPacket capturedPacket = new TCPCapturedPacket();
             capturedPacket.setPacket(new com.hyc.backend.packet.TCPPacket((TCPPacket) packet));
+            capturedPacket.setBatchId(batchId);
+            capturedPacket.setCreated(new Date());
+            capturedPacket.setUpStream(isUpstream);
             if(isUpstream){
                 upTcpNum++;
             }else{
                 downTcpNum++;
             }
-        }else if(packet instanceof UDPPacket){
-            capturedPacket.setPacket(new com.hyc.backend.packet.UDPPacket((UDPPacket) packet));
-            if(isUpstream){
-                upUdpNum++;
-            }else{
-                downUdpNum++;
-            }
-        }else if(packet instanceof ICMPPacket){
-            capturedPacket.setPacket(new com.hyc.backend.packet.ICMPPacket((ICMPPacket) packet));
-            if(isUpstream){
-                upIcmpNum++;
-            }else{
-                downIcmpNum++;
-            }
-        }else if(packet instanceof ARPPacket){
-            capturedPacket.setPacket(new com.hyc.backend.packet.ARPPacket((ARPPacket) packet));
-            if(isUpstream){
-                upArpNum++;
-            }else{
-                downArpNum++;
-            }
+            //应该在redis中为抓到的每一类数据包都创建一个list，分开存储，这样取的时候可以针对性的取！
+            redisMapper.addToList(AttackKey.cap_packet, "batch_id" + batchId + "_TCP_list", capturedPacket);
+//        }else if(packet instanceof UDPPacket){
+//            capturedPacket.setPacket(UDPPacketModel.readFrom((UDPPacket) packet));
+//            if(isUpstream){
+//                upUdpNum++;
+//            }else{
+//                downUdpNum++;
+//            }
+//        }else if(packet instanceof ICMPPacket){
+//            capturedPacket.setPacket(ICMPPacketModel.readFrom((ICMPPacket) packet));
+//            if(isUpstream){
+//                upIcmpNum++;
+//            }else{
+//                downIcmpNum++;
+//            }
+//        }else if(packet instanceof ARPPacket){
+//            capturedPacket.setPacket(ARPPacketModel.readFrom((ARPPacket) packet));
+//            if(isUpstream){
+//                upArpNum++;
+//            }else{
+//                downArpNum++;
+//            }
         }
-        redisMapper.addToList(AttackKey.cap_packet, "batch_id_"+batchId+"_list", capturedPacket);
     }
 
     public Integer stopAttack(){

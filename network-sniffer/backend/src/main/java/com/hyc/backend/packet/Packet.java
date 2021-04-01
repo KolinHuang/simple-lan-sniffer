@@ -16,7 +16,7 @@ public class Packet implements Serializable {
     //数据包长度
     private int len;
     //以太网数据帧的引用
-    private EthernetPacket ethernetPacket;
+    public EthernetPacket ethernetPacket;
     //头部字段
     private byte[] header;
     ////数据字段

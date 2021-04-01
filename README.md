@@ -636,7 +636,7 @@ public class AttackController {
 
 ### 5.5 攻击核心代码
 
-此项目的核心功能就是对抓取的网络数据包进行一系列操作，如分组、拼接、解压、还原等。所以就不再描述其他细节问题，重点讲讲上述核心功能的实现。
+此项目的其中一个核心功能就是对抓取的网络数据包进行一系列操作，如分组、拼接、解压、还原等。所以就不再描述其他细节问题，重点讲讲上述核心功能的实现。
 
 首先，在前端页面上初次填写攻击配置信息（srcIP, dstIP, gateIP等）后，点击setup configs按钮，后端会接收到一个路径为`attack/updateConfigAndOpenDevice`的请求。随即根据表单的数据更新攻击配置信息（存入redis），然后根据配置信息选择网卡，并调用以下两个来自Jpcap包的方法打开网卡设备：
 
@@ -898,7 +898,7 @@ private void receiveAndForwardingPacket(){
 
 开放攻击，查看前端数据统计，成功抓到了许多数据包。但是很明显有一个问题：只有下行的数据包被抓到了，上行的数据包没有被抓到。
 
-![image-20210329204233419](/Users/huangyucai/Library/Application Support/typora-user-images/image-20210329204233419.png)
+![image-20210329204233419](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210329204233419.png)
 
 我感觉是本地主机开了IP转发的原因，网卡在接收到目标主机访问百度的数据包后，进行IP转发，把源MAC地址修改为了本地主机的MAC地址，然后将数据包转发给网关，所以当数据包的MAC地址为本地主机的MAC地址时，本程序将其过滤掉了。看看问题代码:
 

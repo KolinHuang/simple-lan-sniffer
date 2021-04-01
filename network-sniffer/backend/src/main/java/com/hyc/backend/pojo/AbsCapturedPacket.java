@@ -1,29 +1,31 @@
 package com.hyc.backend.pojo;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.hyc.backend.packet.Packet;
 
-import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 
 /**
  * @author kol Huang
- * @date 2021/3/29
+ * @date 2021/4/1
  */
-public class CapturedPacket implements Serializable {
+public abstract class AbsCapturedPacket {
+
     private String id;
 
-    private Date created = new Date();
+    private Date created;
 
-    private boolean isUpStream;
+    private boolean upStream;
+    @JsonIgnore
+    private Packet packet;
 
     private Integer batchId;
 
     private Date startAttackTime;
 
-    private Packet packet;
-
     private List<String> tags;
+
 
     public String getId() {
         return id;
@@ -42,11 +44,11 @@ public class CapturedPacket implements Serializable {
     }
 
     public boolean isUpStream() {
-        return isUpStream;
+        return upStream;
     }
 
     public void setUpStream(boolean upStream) {
-        isUpStream = upStream;
+        this.upStream = upStream;
     }
 
     public Integer getBatchId() {
@@ -57,20 +59,20 @@ public class CapturedPacket implements Serializable {
         this.batchId = batchId;
     }
 
-    public Date getStartAttackTime() {
-        return startAttackTime;
-    }
-
-    public void setStartAttackTime(Date startAttackTime) {
-        this.startAttackTime = startAttackTime;
-    }
-
     public Packet getPacket() {
         return packet;
     }
 
     public void setPacket(Packet packet) {
         this.packet = packet;
+    }
+
+    public Date getStartAttackTime() {
+        return startAttackTime;
+    }
+
+    public void setStartAttackTime(Date startAttackTime) {
+        this.startAttackTime = startAttackTime;
     }
 
     public List<String> getTags() {

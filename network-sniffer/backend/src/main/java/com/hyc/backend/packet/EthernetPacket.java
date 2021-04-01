@@ -58,7 +58,7 @@ public class EthernetPacket implements Serializable {
      * 由于src_mac字节数组中存储的是十进制，因此我们需要将其翻译成十六进制
      * @return
      */
-    public String getSourceAddress(){
+    public String readSourceAddress(){
 
         StringBuffer sb = new StringBuffer();
         for(int i = 0; i <= 5; ++i){
@@ -76,7 +76,7 @@ public class EthernetPacket implements Serializable {
      * 由于dst_mac字节数组中存储的是十进制，因此我们需要将其翻译成十六进制
      * @return
      */
-    public String getDestinationAddress(){
+    public String readDestinationAddress(){
 
         StringBuffer sb = new StringBuffer();
         for(int i = 0; i <= 5; ++i){

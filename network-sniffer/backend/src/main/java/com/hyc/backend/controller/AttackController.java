@@ -54,6 +54,8 @@ public class AttackController {
         return devices;
     }
 
+
+
     @GetMapping("/isDeviceOpened")
     @ResponseBody
     public ResultDTO isDeviceOpened(){
@@ -75,9 +77,9 @@ public class AttackController {
             attackService.updateConfigAndOpenDevice(req);
             deviceOpened = true;
             AttackConfig config = (AttackConfig) redisMapper.get(AttackKey.config, "config", AttackConfig.class);
-            if(config != null){
-                req.setId(config.getId());
-            }
+//            if(config != null){
+//                req.setId(config.getId());
+//            }
 
             redisMapper.set(AttackKey.config, "config", req);
             return new ResultDTO(true);

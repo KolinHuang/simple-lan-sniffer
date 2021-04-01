@@ -42,7 +42,35 @@ public class TCPPacket extends IPPacket{
     }
 
     public TCPPacket(jpcap.packet.TCPPacket packet) {
-        super(packet);
+
+        TCPPacket model = new TCPPacket();
+        model.setSec(packet.sec);
+        model.setUsec(packet.usec);
+        model.setCapLen(packet.caplen);
+        model.setLen(packet.len);
+        model.setHeader(packet.header);
+        model.setData(packet.data);
+        model.setEthernetPacket(new EthernetPacket(packet.datalink));
+
+        model.setVersion(packet.version);
+        model.setPriority(packet.priority);
+        model.setdFlag(packet.d_flag);
+        model.settFlag(packet.t_flag);
+        model.setrFlag(packet.r_flag);
+        model.setRsvTos(packet.rsv_tos);
+        model.setLength(packet.length);
+        model.setRsvFrag(packet.rsv_frag);
+        model.setDontFrag(packet.dont_frag);
+        model.setMoreFrag(packet.more_frag);
+        model.setOffset(packet.offset);
+        model.setHopLimit(packet.hop_limit);
+        model.setProtocol(packet.protocol);
+        model.setIdent(packet.ident);
+        model.setFlowLabel(packet.flow_label);
+        model.setSrcIP(packet.src_ip);
+        model.setDstIP(packet.dst_ip);
+        model.setOption(packet.option);
+        model.setOptions(packet.options);
 
         this.srcPort = packet.src_port;
         this.dstPort = packet.dst_port;
@@ -182,4 +210,6 @@ public class TCPPacket extends IPPacket{
     public void setOption(byte[] option) {
         this.option = option;
     }
+
+
 }

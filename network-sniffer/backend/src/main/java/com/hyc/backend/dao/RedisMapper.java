@@ -1,15 +1,16 @@
 package com.hyc.backend.dao;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hyc.backend.redis.KeyPrefix;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -125,7 +126,7 @@ public class RedisMapper {
     public Long addToList(KeyPrefix prefix, String name,  Object value){
         try{
             String realName = prefix.getPrefix().concat(name);
-            return redisTemplate.opsForList().rightPush(realName,value);
+            return redisTemplate.boundListOps(realName).rightPush(value);
         }catch (Exception e){
             e.printStackTrace();
             return 0L;
@@ -138,14 +139,36 @@ public class RedisMapper {
      * @param name
      * @return
      */
-    public Object getFromList(KeyPrefix prefix, String name){
+    public Object getFromList(KeyPrefix prefix, String name, Class<?> clazz){
         try{
             String realName = prefix.getPrefix().concat(name);
-            return redisTemplate.opsForList().range(realName, 0, -1);
+            ObjectMapper mapper = new ObjectMapper();
+            List<Object> objects = mapper.convertValue(redisTemplate.boundListOps(realName).range(0, -1), new TypeReference<List<Object>>() {});
+            List<Object> ret = new ArrayList<>();
+            for (Object capPacket : objects) {
+                ret.add(mapper.convertValue(capPacket, clazz));
+            }
+            return ret;
         }catch (Exception e){
             e.printStackTrace();
-            return 0L;
+            return null;
         }
+    }
+
+    /**
+     * 删除指定列表
+     * @param prefix
+     * @param name
+     * @return
+     */
+    public boolean delList(KeyPrefix prefix, String name){
+        String realName = prefix.getPrefix().concat(name);
+        try {
+            return redisTemplate.delete(realName);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return false;
     }
 
 

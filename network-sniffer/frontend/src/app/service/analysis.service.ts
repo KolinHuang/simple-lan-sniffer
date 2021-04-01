@@ -17,7 +17,7 @@ export class AnalysisService {
     }
 
     analysisByBatchId(batchId: number): Observable<Result> {
-        return this.http.get<Result>(`${'/attack/analysisByBatchId'}?batchId=${batchId}`).pipe(
+        return this.http.get<Result>(`${'/analyze/analysisByBatchId'}?batchId=${batchId}`).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);
@@ -28,7 +28,7 @@ export class AnalysisService {
     }
 
     isAnalyzing(): Observable<Result> {
-        return this.http.get<Result>(`${'/attack/isAnalyzing'}`).pipe(
+        return this.http.get<Result>(`${'/analyze/isAnalyzing'}`).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);
@@ -39,7 +39,7 @@ export class AnalysisService {
     }
 
     distinctBatchIds(): Observable<number[]> {
-        return this.http.get<number[]>(`${'/attack/distinctBatchIds'}`).pipe(
+        return this.http.get<number[]>(`${'/analyze/distinctBatchIds'}`).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);
@@ -50,7 +50,7 @@ export class AnalysisService {
     }
 
     filterPackets(params: PacketFilterParams): Observable<Packet[]> {
-        return this.http.post<Packet[]>(`${'/attack/filterPackets'}`, params).pipe(
+        return this.http.post<Packet[]>(`${'/analyze/filterPackets'}`, params).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);
@@ -72,7 +72,7 @@ export class AnalysisService {
     }
 
     getOriginalPackets(originalIds: string[]): Observable<OriginalPacket[]> {
-        return this.http.get<OriginalPacket[]>(`${'/attack/getOriginalPackets'}?originalIds=${originalIds}`).pipe(
+        return this.http.get<OriginalPacket[]>(`${'/analyze/getOriginalPackets'}?originalIds=${originalIds}`).pipe(
             switchMap(data => of(data)),
             catchError((err) => {
                 console.error(err);
