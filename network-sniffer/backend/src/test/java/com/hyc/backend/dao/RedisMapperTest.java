@@ -1,20 +1,16 @@
 package com.hyc.backend.dao;
 
-import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hyc.backend.redis.CommonKey;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.RedisTemplate;
 
-import javax.annotation.Resource;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 
@@ -78,5 +74,7 @@ public class RedisMapperTest {
 
     @Test
     public void jedisTest(){
+        Integer batch_id = (Integer) redisTemplate.opsForValue().get(CommonKey.COMMON_KEY.getPrefix().concat("batch_id"));
+        System.out.println(batch_id);
     }
 }

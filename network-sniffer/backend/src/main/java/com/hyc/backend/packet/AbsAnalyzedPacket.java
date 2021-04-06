@@ -38,11 +38,11 @@ public class AbsAnalyzedPacket implements Serializable {
     protected int srcPort;
     protected int dstPort;
 
-    public void minimizeContent(){
+    public void minimizeContent() {
         logger.info("the packet is too large, so minimize it.");
         this.minimized = true;
         setContent("--Too large to display--");
-        if(data.length >= THRESHOLD_BYTE_SIZE){
+        if (data.length >= THRESHOLD_BYTE_SIZE) {
             setData(new byte[0]);
         }
     }
@@ -175,4 +175,5 @@ public class AbsAnalyzedPacket implements Serializable {
     public void setDstPort(int dstPort) {
         this.dstPort = dstPort;
     }
+
 }

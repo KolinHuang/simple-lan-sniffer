@@ -15,7 +15,7 @@ import com.hyc.backend.packet.Packet;
 public interface ISingleAnalysisRealm {
     String protocol();
 
-    void initPacket(Integer batchId, String capturePacketId, boolean upstream, Packet packet);
+    void initPacket(Integer batchId, boolean upstream, Packet packet);
 
     AbsAnalyzedPacket makePacket4Save();
 }

@@ -289,6 +289,9 @@ public class NetworkUtils {
 
 
     public static byte[] concatBytes(byte[] data1, byte[] data2) {
+        if(data1 == null){
+            data1 = new byte[0];
+        }
         byte[] data3 = new byte[data1.length + data2.length];
         System.arraycopy(data1, 0, data3, 0, data1.length);
         System.arraycopy(data2, 0, data3, data1.length, data2.length);
@@ -325,6 +328,19 @@ public class NetworkUtils {
             return data;
         }
         return b;
+    }
+
+    private static List<String> reqMethods = Arrays.asList("GET", "POST", "HEAD", "OPTIONS", "PUT", "DELETE", "TARCE");
+
+    public static boolean isRequestHttpHeader(Map<String, String> httpHeaders) {
+        if (httpHeaders != null && httpHeaders.containsKey("METHOD")) {
+            for (String reqMethod : reqMethods) {
+                if (httpHeaders.get("METHOD").startsWith(reqMethod)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public static boolean isResponseHttpHeader(Map<String, String> httpHeaders) {

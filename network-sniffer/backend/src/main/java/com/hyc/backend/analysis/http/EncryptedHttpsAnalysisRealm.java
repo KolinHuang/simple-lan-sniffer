@@ -15,6 +15,7 @@ import com.hyc.backend.utils.Helper;
 import com.hyc.backend.utils.NetworkUtils;
 
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -27,7 +28,7 @@ public class EncryptedHttpsAnalysisRealm implements IAnalysisRealm {
     protected Date time;
     protected boolean upstream;
     protected Integer batchId;
-    protected List<String> capturedPacketIds = new ArrayList<>();
+//    protected List<String> capturedPacketIds = new ArrayList<>();
     protected Long ackNum;
     protected byte[] contentBytes;
     protected String srcMac;
@@ -41,9 +42,8 @@ public class EncryptedHttpsAnalysisRealm implements IAnalysisRealm {
     }
 
     @Override
-    public void initPacket(Integer batchId, String capturePacketId, boolean upstream, Packet packet) {
+    public void initPacket(Integer batchId, boolean upstream, Packet packet) {
         this.batchId = batchId;
-        this.capturedPacketIds.add(capturePacketId);
         this.upstream = upstream;
 
         TCPPacket ipPacketModel = (TCPPacket) packet;
@@ -59,8 +59,7 @@ public class EncryptedHttpsAnalysisRealm implements IAnalysisRealm {
     }
 
     @Override
-    public void appendPacket(String capturePacketId, Packet packet) {
-        this.capturedPacketIds.add(capturePacketId);
+    public void appendPacket( Packet packet) {
 
         TCPPacket tcpPacketModel = (TCPPacket) packet;
         byte[] newBytes = NetworkUtils.concatBytes(this.contentBytes, tcpPacketModel.getData());
@@ -70,11 +69,7 @@ public class EncryptedHttpsAnalysisRealm implements IAnalysisRealm {
     @Override
     public AbsAnalyzedPacket makePacket4Save() {
         String realContent = null;
-        try {
-            realContent = new String(this.contentBytes, "GBK");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+        realContent = new String(this.contentBytes, StandardCharsets.UTF_8);
 
         AnalyzedHttpsPacket analyzedHttpsPacket = new AnalyzedHttpsPacket();
         analyzedHttpsPacket.setTime(this.time);
@@ -84,7 +79,7 @@ public class EncryptedHttpsAnalysisRealm implements IAnalysisRealm {
         analyzedHttpsPacket.setProtocol(this.protocol());
         analyzedHttpsPacket.setUpstream(this.upstream);
         analyzedHttpsPacket.setBatchId(this.batchId);
-        analyzedHttpsPacket.setCapturedPacketIds(this.capturedPacketIds);
+//        analyzedHttpsPacket.setCapturedPacketIds(this.capturedPacketIds);
         analyzedHttpsPacket.setAckNum(this.ackNum);
         analyzedHttpsPacket.setData(this.contentBytes);
         analyzedHttpsPacket.setContent(realContent);

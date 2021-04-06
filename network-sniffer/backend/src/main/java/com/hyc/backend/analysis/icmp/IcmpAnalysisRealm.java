@@ -14,6 +14,7 @@ import com.hyc.backend.packet.Packet;
 import com.hyc.backend.utils.Helper;
 
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -25,7 +26,6 @@ public class IcmpAnalysisRealm implements ISingleAnalysisRealm {
     protected Date time;
     protected boolean upstream;
     protected Integer batchId;
-    protected List<String> capturedPacketIds = new ArrayList<>();
     protected byte[] contentBytes;
     protected String srcMac;
     protected String destMac;
@@ -37,9 +37,8 @@ public class IcmpAnalysisRealm implements ISingleAnalysisRealm {
         return ProtocolEnum.ICMP.name();
     }
 
-    public void initPacket(Integer batchId, String capturePacketId, boolean upstream, Packet packet) {
+    public void initPacket(Integer batchId, boolean upstream, Packet packet) {
         this.batchId = batchId;
-        this.capturedPacketIds.add(capturePacketId);
         this.upstream = upstream;
 
         ICMPPacket icmpPacketModel = (ICMPPacket) packet;
@@ -56,11 +55,7 @@ public class IcmpAnalysisRealm implements ISingleAnalysisRealm {
     @Override
     public AbsAnalyzedPacket makePacket4Save() {
         String realContent = null;
-        try {
-            realContent = new String(this.contentBytes, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+        realContent = new String(this.contentBytes, StandardCharsets.UTF_8);
 
         AnalyzedIcmpPacket analyzedIcmpPacket = new AnalyzedIcmpPacket();
         analyzedIcmpPacket.setTime(this.time);
@@ -70,7 +65,7 @@ public class IcmpAnalysisRealm implements ISingleAnalysisRealm {
         analyzedIcmpPacket.setProtocol(this.protocol());
         analyzedIcmpPacket.setUpstream(this.upstream);
         analyzedIcmpPacket.setBatchId(this.batchId);
-        analyzedIcmpPacket.setCapturedPacketIds(this.capturedPacketIds);
+//        analyzedIcmpPacket.setCapturedPacketIds(this.capturedPacketIds);
         analyzedIcmpPacket.setData(this.contentBytes);
         analyzedIcmpPacket.setContent(realContent);
         analyzedIcmpPacket.setSrcIp(this.srcIp);

@@ -16,6 +16,7 @@ import com.hyc.backend.utils.NetworkUtils;
 
 
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -27,7 +28,7 @@ public class ArpAnalysisRealm implements ISingleAnalysisRealm {
     protected Date time;
     protected boolean upstream;
     protected Integer batchId;
-    protected List<String> capturedPacketIds = new ArrayList<>();
+//    protected List<String> capturedPacketIds = new ArrayList<>();
     protected byte[] contentBytes;
     protected String srcMac;
     protected String destMac;
@@ -40,9 +41,8 @@ public class ArpAnalysisRealm implements ISingleAnalysisRealm {
     }
 
     @Override
-    public void initPacket(Integer batchId, String capturePacketId, boolean upstream, Packet packet) {
+    public void initPacket(Integer batchId, boolean upstream, Packet packet) {
         this.batchId = batchId;
-        this.capturedPacketIds.add(capturePacketId);
         this.upstream = upstream;
 
         ARPPacket arpPacketModel = (ARPPacket) packet;
@@ -57,11 +57,7 @@ public class ArpAnalysisRealm implements ISingleAnalysisRealm {
     @Override
     public AbsAnalyzedPacket makePacket4Save() {
         String realContent = null;
-        try {
-            realContent = new String(this.contentBytes, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+        realContent = new String(this.contentBytes, StandardCharsets.UTF_8);
 
         AnalyzedArpPacket analyzedUdpPacket = new AnalyzedArpPacket();
         analyzedUdpPacket.setTime(this.time);
@@ -71,7 +67,7 @@ public class ArpAnalysisRealm implements ISingleAnalysisRealm {
         analyzedUdpPacket.setProtocol(this.protocol());
         analyzedUdpPacket.setUpstream(this.upstream);
         analyzedUdpPacket.setBatchId(this.batchId);
-        analyzedUdpPacket.setCapturedPacketIds(this.capturedPacketIds);
+//        analyzedUdpPacket.setCapturedPacketIds(this.capturedPacketIds);
         analyzedUdpPacket.setData(this.contentBytes);
         analyzedUdpPacket.setContent(realContent);
         analyzedUdpPacket.setSrcIp(this.srcIp);

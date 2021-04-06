@@ -17,14 +17,16 @@ public class TcpPacketFilter implements IPacketFilter {
     public boolean filter(Packet packet) {
         //分析TCP协议
         if (packet instanceof TCPPacket) {
-            TCPPacket tcpPacketModel = (TCPPacket) packet;
-            if (tcpPacketModel.getSrcPort() != 80 &&
-                    tcpPacketModel.getDstPort() != 80 &&
-                    tcpPacketModel.getSrcPort() != 443 &&
-                    tcpPacketModel.getDstPort() != 443) {
-                return false;
-            }
+//            TCPPacket tcpPacketModel = (TCPPacket) packet;
+            return true;
+//            if (tcpPacketModel.getSrcPort() != 80 &&
+//                    tcpPacketModel.getDstPort() != 80 &&
+//                    tcpPacketModel.getSrcPort() != 443 &&
+//                    tcpPacketModel.getDstPort() != 443) {
+//                return false;
+//            }
         }
-        return true;
+        return false;
+
     }
 }

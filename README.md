@@ -933,3 +933,66 @@ if(ipPacket.src_ip.getHostAddress().equals(config.getDestIp())){
 
 ### 5.6 数据包分析
 
+所有被抓取的数据包都被封装到名为`CapturedXXXPacket`的pojo类中，并序列化到redis。当服务端接收到`analysisByBatchId`请求后，会根据批次读出`CapturedXXXPacket`数据，然后对数据包进行分析。以TCP包为例，在分析过程中会将HTTP和HTTPS包从其他的TCP包中过滤出来，另行存放。假设当前在分析一个HTTP包:
+
+1. 首先根据端口号过滤，源或者目地端口为80端口的数据包留下
+2. 然后将TCP的ACK号作为Key，将TCP报文段重组，通过`appendPacket`实现
+3. 最后将所有有效的HTTP包封装为`AnalyzedHttpPacket`并序列化到redis中。
+
+主要代码如下：
+
+```java
+private long analysisHttp(Integer batchId){
+  this.analyzing = true;
+  List<CapturedTCPPacket> fromList = (List<CapturedTCPPacket>) redisMapper.getFromList(AttackKey.cap_packet, "batch_id" + batchId + "_TCP_list", CapturedTCPPacket.class);
+  HttpPacketFilter httpPacketFilter = new HttpPacketFilter();
+  Map<Long, IAnalysisRealm> analysisRealmMap = new HashMap<>();
+  long size = 0;
+  for (CapturedTCPPacket tcpCapturedPacket : fromList) {
+    TCPPacket tcpPacket = tcpCapturedPacket.getPacket();
+    //根据端口号判断是否是HTTP协议
+    if(!httpPacketFilter.filter(tcpPacket)){
+
+      if (tcpPacket.getData() != null && tcpPacket.getData().length > 0) {
+        size++;
+        //根据TCP包的ACK号作为Key
+        if (!analysisRealmMap.containsKey(tcpPacket.getAckNum())) {
+          HttpAnalysisRealm httpAnalysisRealm = new HttpAnalysisRealm();
+          httpAnalysisRealm.initPacket(tcpCapturedPacket.getBatchId(), tcpCapturedPacket.isUpStream(), tcpPacket);
+          analysisRealmMap.put(tcpPacket.getAckNum(), httpAnalysisRealm);
+        } else {
+          analysisRealmMap.get(tcpPacket.getAckNum()).appendPacket(tcpPacket);
+        }
+      }
+    }
+  }
+
+  saveRealmPackets(analysisRealmMap, batchId, new AnalyzedHttpPacket());
+  this.analyzing = false;
+  return size;
+}
+```
+
+其他数据包的处理类似，不再赘述。
+
+### 5.7 前端数据包可视化
+
+在前端设置到过滤条件后，点击Filter按钮，提交post请求`/analyze/filterPackets`到服务器。
+
+![Snip20210406_157](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/Snip20210406_157.png)
+
+服务端处理请求，解析参数。先从redis中按照batchId查询出数据包，然后根据过滤条件过滤，最终返回数据包。实际上应当以过滤条件作为查询语句去数据库中查询，这样能够减少数据库的查询时间并减少网络通信开销，在高并发场景下提高效率。这里用redis，没办法特别自由地查询数据。
+
+查询后的结果如下：
+
+![image-20210406204426228](https://hyc-pic.oss-cn-hangzhou.aliyuncs.com/image-20210406204426228.png)
+
+
+
+
+
+## 6. 入侵检测
+
+接下来将在以上项目的基础上，按照论文《Machine Learning DDoS Detection for Consumer Internet of Things Devices》中描述的方法实现简单的入侵检测系统。
+
+这篇论文主要通过分析数据包的时空特性，利用决策树和随机森林来进行入侵检测。

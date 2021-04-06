@@ -1,8 +1,7 @@
 package com.hyc.backend.service;
 
 import com.hyc.backend.dao.RedisMapper;
-import com.hyc.backend.pojo.AttackConfig;
-import com.hyc.backend.pojo.TCPCapturedPacket;
+import com.hyc.backend.pojo.*;
 import com.hyc.backend.redis.AttackKey;
 import com.hyc.backend.redis.CommonKey;
 import com.hyc.backend.utils.NetworkUtils;
@@ -353,6 +352,7 @@ public class AttackService {
         return false;
     }
 
+    //这个方法写的很烂！！但是因为json序列化问题，不得不这么写！别骂了，我也觉得很恶心！
     private void savePacket(Packet packet, boolean isUpstream){
         //保存数据包到redis
         if(isUpstream){
@@ -362,7 +362,7 @@ public class AttackService {
         }
 
         if(packet instanceof TCPPacket){
-            TCPCapturedPacket capturedPacket = new TCPCapturedPacket();
+            CapturedTCPPacket capturedPacket = new CapturedTCPPacket();
             capturedPacket.setPacket(new com.hyc.backend.packet.TCPPacket((TCPPacket) packet));
             capturedPacket.setBatchId(batchId);
             capturedPacket.setCreated(new Date());
@@ -374,27 +374,42 @@ public class AttackService {
             }
             //应该在redis中为抓到的每一类数据包都创建一个list，分开存储，这样取的时候可以针对性的取！
             redisMapper.addToList(AttackKey.cap_packet, "batch_id" + batchId + "_TCP_list", capturedPacket);
-//        }else if(packet instanceof UDPPacket){
-//            capturedPacket.setPacket(UDPPacketModel.readFrom((UDPPacket) packet));
-//            if(isUpstream){
-//                upUdpNum++;
-//            }else{
-//                downUdpNum++;
-//            }
-//        }else if(packet instanceof ICMPPacket){
-//            capturedPacket.setPacket(ICMPPacketModel.readFrom((ICMPPacket) packet));
-//            if(isUpstream){
-//                upIcmpNum++;
-//            }else{
-//                downIcmpNum++;
-//            }
-//        }else if(packet instanceof ARPPacket){
-//            capturedPacket.setPacket(ARPPacketModel.readFrom((ARPPacket) packet));
-//            if(isUpstream){
-//                upArpNum++;
-//            }else{
-//                downArpNum++;
-//            }
+        }else if(packet instanceof UDPPacket){
+            CapturedUDPPacket capturedPacket = new CapturedUDPPacket();
+            capturedPacket.setPacket(new com.hyc.backend.packet.UDPPacket((UDPPacket) packet));
+            capturedPacket.setBatchId(batchId);
+            capturedPacket.setCreated(new Date());
+            capturedPacket.setUpStream(isUpstream);
+            if(isUpstream){
+                upUdpNum++;
+            }else{
+                downUdpNum++;
+            }
+            redisMapper.addToList(AttackKey.cap_packet, "batch_id" + batchId + "_UDP_list", capturedPacket);
+        }else if(packet instanceof ICMPPacket){
+            CapturedICMPPacket capturedPacket = new CapturedICMPPacket();
+            capturedPacket.setPacket(new com.hyc.backend.packet.ICMPPacket((ICMPPacket) packet));
+            capturedPacket.setBatchId(batchId);
+            capturedPacket.setCreated(new Date());
+            capturedPacket.setUpStream(isUpstream);
+            if(isUpstream){
+                upIcmpNum++;
+            }else{
+                downIcmpNum++;
+            }
+            redisMapper.addToList(AttackKey.cap_packet, "batch_id" + batchId + "_ICMP_list", capturedPacket);
+        }else if(packet instanceof ARPPacket){
+            CapturedARPPacket capturedPacket = new CapturedARPPacket();
+            capturedPacket.setPacket(new com.hyc.backend.packet.ARPPacket((ARPPacket) packet));
+            capturedPacket.setBatchId(batchId);
+            capturedPacket.setCreated(new Date());
+            capturedPacket.setUpStream(isUpstream);
+            if(isUpstream){
+                upArpNum++;
+            }else{
+                downArpNum++;
+            }
+            redisMapper.addToList(AttackKey.cap_packet, "batch_id" + batchId + "_ARP_list", capturedPacket);
         }
     }
 

@@ -21,7 +21,7 @@ public class UdpAnalysisRealm implements ISingleAnalysisRealm {
     protected Date time;
     protected boolean upstream;
     protected Integer batchId;
-    protected List<String> capturedPacketIds = new ArrayList<>();
+//    protected List<String> capturedPacketIds = new ArrayList<>();
     protected byte[] contentBytes;
     protected String srcMac;
     protected String destMac;
@@ -36,9 +36,8 @@ public class UdpAnalysisRealm implements ISingleAnalysisRealm {
     }
 
     @Override
-    public void initPacket(Integer batchId, String capturePacketId, boolean upstream, Packet packet) {
+    public void initPacket(Integer batchId, boolean upstream, Packet packet) {
         this.batchId = batchId;
-        this.capturedPacketIds.add(capturePacketId);
         this.upstream = upstream;
 
         UDPPacket tcpPacketModel = (UDPPacket) packet;
@@ -71,7 +70,7 @@ public class UdpAnalysisRealm implements ISingleAnalysisRealm {
         analyzedUdpPacket.setProtocol(this.protocol());
         analyzedUdpPacket.setUpstream(this.upstream);
         analyzedUdpPacket.setBatchId(this.batchId);
-        analyzedUdpPacket.setCapturedPacketIds(this.capturedPacketIds);
+//        analyzedUdpPacket.setCapturedPacketIds(this.capturedPacketIds);
         analyzedUdpPacket.setData(this.contentBytes);
         analyzedUdpPacket.setContent(realContent);
         analyzedUdpPacket.setSrcIp(this.srcIp);

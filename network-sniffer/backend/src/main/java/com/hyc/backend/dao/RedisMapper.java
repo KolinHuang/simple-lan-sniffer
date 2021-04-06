@@ -33,6 +33,17 @@ public class RedisMapper {
      * @param key 键
      * @return 值
      */
+    public Object get(KeyPrefix prefix, String key) {
+        String realKey = prefix.getPrefix().concat(key);
+        return redisTemplate.opsForValue().get(realKey);
+    }
+    /**
+     * 取对象
+     * @param prefix
+     * @param key
+     * @param clazz
+     * @return
+     */
     public Object get(KeyPrefix prefix, String key, Class<?> clazz){
         String realKey = prefix.getPrefix().concat(key);
         ObjectMapper mapper = new ObjectMapper();

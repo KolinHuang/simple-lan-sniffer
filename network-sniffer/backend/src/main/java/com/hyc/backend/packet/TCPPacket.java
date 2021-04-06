@@ -43,35 +43,33 @@ public class TCPPacket extends IPPacket{
 
     public TCPPacket(jpcap.packet.TCPPacket packet) {
 
-        TCPPacket model = new TCPPacket();
-        model.setSec(packet.sec);
-        model.setUsec(packet.usec);
-        model.setCapLen(packet.caplen);
-        model.setLen(packet.len);
-        model.setHeader(packet.header);
-        model.setData(packet.data);
-        model.setEthernetPacket(new EthernetPacket(packet.datalink));
+        this.setSec(packet.sec);
+        this.setUsec(packet.usec);
+        this.setCapLen(packet.caplen);
+        this.setLen(packet.len);
+        this.setHeader(packet.header);
+        this.setData(packet.data);
+        this.setEthernetPacket(new EthernetPacket(packet.datalink));
 
-        model.setVersion(packet.version);
-        model.setPriority(packet.priority);
-        model.setdFlag(packet.d_flag);
-        model.settFlag(packet.t_flag);
-        model.setrFlag(packet.r_flag);
-        model.setRsvTos(packet.rsv_tos);
-        model.setLength(packet.length);
-        model.setRsvFrag(packet.rsv_frag);
-        model.setDontFrag(packet.dont_frag);
-        model.setMoreFrag(packet.more_frag);
-        model.setOffset(packet.offset);
-        model.setHopLimit(packet.hop_limit);
-        model.setProtocol(packet.protocol);
-        model.setIdent(packet.ident);
-        model.setFlowLabel(packet.flow_label);
-        model.setSrcIP(packet.src_ip);
-        model.setDstIP(packet.dst_ip);
-        model.setOption(packet.option);
-        model.setOptions(packet.options);
-
+        this.setVersion(packet.version);
+        this.setPriority(packet.priority);
+        this.setdFlag(packet.d_flag);
+        this.settFlag(packet.t_flag);
+        this.setrFlag(packet.r_flag);
+        this.setRsvTos(packet.rsv_tos);
+        this.setLength(packet.length);
+        this.setRsvFrag(packet.rsv_frag);
+        this.setDontFrag(packet.dont_frag);
+        this.setMoreFrag(packet.more_frag);
+        this.setOffset(packet.offset);
+        this.setHopLimit(packet.hop_limit);
+        this.setProtocol(packet.protocol);
+        this.setIdent(packet.ident);
+        this.setFlowLabel(packet.flow_label);
+        this.setSrcIP(packet.src_ip);
+        this.setDstIP(packet.dst_ip);
+        this.setOption(packet.option);
+        this.setOptions(packet.options);
         this.srcPort = packet.src_port;
         this.dstPort = packet.dst_port;
         this.sequence = packet.sequence;
