@@ -2,7 +2,7 @@ package com.hyc.backend.service;
 
 import com.hyc.backend.dao.RedisMapper;
 import com.hyc.backend.redis.AttackKey;
-import com.hyc.backend.utils.NetworkUtils;
+import com.hyc.utils.NetworkUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;

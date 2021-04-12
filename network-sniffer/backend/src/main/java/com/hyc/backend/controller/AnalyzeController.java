@@ -1,9 +1,9 @@
 package com.hyc.backend.controller;
 
-import com.hyc.backend.dto.ResultDTO;
-import com.hyc.backend.packet.AbsAnalyzedPacket;
-import com.hyc.backend.packet.AnalyzedHttpPacket;
-import com.hyc.backend.packet.AnalyzedHttpsPacket;
+import com.hyc.dto.ResultDTO;
+import com.hyc.packet.AbsAnalyzedPacket;
+import com.hyc.packet.AnalyzedHttpPacket;
+import com.hyc.packet.AnalyzedHttpsPacket;
 import com.hyc.backend.req.PacketFilterParamsReq;
 import com.hyc.backend.service.AnalysisService;
 import org.slf4j.Logger;

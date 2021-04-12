@@ -1,10 +1,14 @@
 package com.hyc.backend.service;
 
 import com.hyc.backend.dao.RedisMapper;
-import com.hyc.backend.pojo.*;
+import com.hyc.pojo.*;
 import com.hyc.backend.redis.AttackKey;
 import com.hyc.backend.redis.CommonKey;
-import com.hyc.backend.utils.NetworkUtils;
+import com.hyc.utils.NetworkUtils;
+import com.hyc.pojo.AttackConfig;
+import com.hyc.pojo.CapturedTCPPacket;
+import com.hyc.pojo.CapturedUDPPacket;
+import com.hyc.utils.NetworkUtils;
 import jpcap.JpcapCaptor;
 import jpcap.JpcapSender;
 import jpcap.NetworkInterface;
@@ -363,7 +367,7 @@ public class AttackService {
 
         if(packet instanceof TCPPacket){
             CapturedTCPPacket capturedPacket = new CapturedTCPPacket();
-            capturedPacket.setPacket(new com.hyc.backend.packet.TCPPacket((TCPPacket) packet));
+            capturedPacket.setPacket(new com.hyc.packet.TCPPacket((TCPPacket) packet));
             capturedPacket.setBatchId(batchId);
             capturedPacket.setCreated(new Date());
             capturedPacket.setUpStream(isUpstream);
@@ -376,7 +380,7 @@ public class AttackService {
             redisMapper.addToList(AttackKey.cap_packet, "batch_id" + batchId + "_TCP_list", capturedPacket);
         }else if(packet instanceof UDPPacket){
             CapturedUDPPacket capturedPacket = new CapturedUDPPacket();
-            capturedPacket.setPacket(new com.hyc.backend.packet.UDPPacket((UDPPacket) packet));
+            capturedPacket.setPacket(new com.hyc.packet.UDPPacket((UDPPacket) packet));
             capturedPacket.setBatchId(batchId);
             capturedPacket.setCreated(new Date());
             capturedPacket.setUpStream(isUpstream);
@@ -388,7 +392,7 @@ public class AttackService {
             redisMapper.addToList(AttackKey.cap_packet, "batch_id" + batchId + "_UDP_list", capturedPacket);
         }else if(packet instanceof ICMPPacket){
             CapturedICMPPacket capturedPacket = new CapturedICMPPacket();
-            capturedPacket.setPacket(new com.hyc.backend.packet.ICMPPacket((ICMPPacket) packet));
+            capturedPacket.setPacket(new com.hyc.packet.ICMPPacket((ICMPPacket) packet));
             capturedPacket.setBatchId(batchId);
             capturedPacket.setCreated(new Date());
             capturedPacket.setUpStream(isUpstream);
@@ -400,7 +404,7 @@ public class AttackService {
             redisMapper.addToList(AttackKey.cap_packet, "batch_id" + batchId + "_ICMP_list", capturedPacket);
         }else if(packet instanceof ARPPacket){
             CapturedARPPacket capturedPacket = new CapturedARPPacket();
-            capturedPacket.setPacket(new com.hyc.backend.packet.ARPPacket((ARPPacket) packet));
+            capturedPacket.setPacket(new com.hyc.packet.ARPPacket((ARPPacket) packet));
             capturedPacket.setBatchId(batchId);
             capturedPacket.setCreated(new Date());
             capturedPacket.setUpStream(isUpstream);

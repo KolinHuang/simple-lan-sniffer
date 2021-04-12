@@ -991,8 +991,160 @@ private long analysisHttp(Integer batchId){
 
 
 
+
+
 ## 6. 入侵检测
 
-接下来将在以上项目的基础上，按照论文《Machine Learning DDoS Detection for Consumer Internet of Things Devices》中描述的方法实现简单的入侵检测系统。
+接下来将在以上项目的基础上，实现简单的入侵检测系统。
 
-这篇论文主要通过分析数据包的时空特性，利用决策树和随机森林来进行入侵检测。
+入侵检测一共分为四个步骤：
+
+1. **抓取数据包**：一般的IDS通常可以挂接在网关上，通过连接集线器或者分路器，把经由网关的数据包同样转发到IDS上。在本场景下，并无上述硬件条件，因此就按上一节中的方法来捕获数据包。
+2. **数据包分组**：将数据包先按设备分组，再按时间戳分组。具体就是先按源IP地址分组，在同个源IP分组内按捕获的时间窗口分组，比如10秒内的数据包放在一组，下个10秒的数据包放在一组。
+3. **特征提取**：从数据包中提取有状态特征和无状态特征。
+   1. 无状态特征：
+      1. Packet Size：通常DoS攻击的数据包都很小，例如SYN泛洪
+      2. 包间间隔：异常流量通常是集中式的。包间间隔的特征可以直接将时间差作为特征，也可以将时间差的差分作为特征。
+      3. 协议：正常流量的协议是较为丰富的，异常流量通常TCP的包相当多。
+   2. 有状态特征：
+      1. 带宽：统计10秒窗口内的平均带宽。
+      2. 目地IP地址：如果经常出现新的目的IP地址，很有可能是遭受了攻击。统计两个时间窗口内目的IP地址的变化作为特征。
+
+4. **二分类**：将分类器的输出结果作为是否遭受攻击的依据。
+   1. KNN
+   2. LSVM
+   3. 决策树
+   4. 随机森林
+
+接下来要解决几个问题：
+
+1. 数据集如何获取？
+2. 入侵检测服务在哪里实现？
+
+首先关于入侵检测服务如何实现的问题，有两个解决方案：
+
+1. 直接在同一个服务端实现，后台开一个线程定时从数据库中读数据包，然后分析。
+2. 划分微服务，用Dubbo实现。
+
+
+
+数据集采用KDD cup 1999数据集，关于该数据集的详细分析见[链接](https://blog.csdn.net/qq_38384924/article/details/97128744)。
+
+主要用j48 tree来实现分类器，将训练好的模型保存在web端，便于读取，训练过程略了，模型文件见src/model目录。
+
+
+
+
+
+## 7. 微服务拆分
+
+用dubbo作为RPC框架，zookeeper作为注册中心，将数据包分析服务、入侵检测服务、邮件发送服务拆分出来，通过dubbo注册到zookeeper上，实现远程调用。
+
+在使用dubbo的时候，需要注意spring-cloud版本和spring-boot版本的对应关系。建议在创建Spring-boot项目的时候，使用阿里的镜像源创建，然后勾选spring-cloud-alibaba中的dubbo组件，这样就无需再处理版本对应，创建出来的就是合适的版本。
+
+我的springboot版本是`2.3.7-RELEASE`，Springcloud版本是`2.2.1-RELEASE`，在使用时报错：
+
+```shell
+cannot access its superinterface org.springframework.cloud.openfeign.Targeter
+```
+
+将`spring-boot-devtools`依赖删除即可，这应该是官方的问题。
+
+### 模块拆分
+
+**api模块**：创建一个api模块（普通maven工程），将服务接口、服务模型、服务异常等均放在 API 包中。
+
+**provider模块**：每一种服务对应一个provider模块（Springboot工程）：
+
+* analyze-service-provider：数据包分析模块
+* ids-service-provider：入侵检测模块
+* mail-service-provider：邮件发送模块
+
+**服务调用**：在backend模块中调用上述服务。
+
+
+
+### 入侵检测服务
+
+首先在api模块中编写接口`IIDSService`:
+
+```java
+package com.hyc.interfaces;
+
+/**
+ * @author kol Huang
+ * @date 2021/4/12
+ */
+public interface IIDSService {
+
+  boolean isAttacked();
+
+}
+```
+
+在analyze-service-provider模块中编写IIDSService接口的实现类`IDSServiceImpl`，代码的大体框架如下所示：
+
+```java
+package com.hyc.idsserviceprovider.impl;
+
+import com.hyc.interfaces.IIDSService;
+import org.apache.dubbo.config.annotation.Service;
+import weka.classifiers.trees.J48;
+import weka.core.Instance;
+import weka.core.Instances;
+import weka.core.SerializationHelper;
+import weka.core.converters.ConverterUtils;
+import weka.experiment.InstanceQuery;
+
+/**
+ * @author kol Huang
+ * @date 2021/4/12
+ */
+@Service
+public class IDSServiceImpl implements IIDSService {
+
+  int[] table = new int[41];
+
+  @Override
+  public boolean isAttacked() {
+    //判断是否被攻击
+    //1. 从mysql中查询验证集
+    //        ConverterUtils.DataSource source = null;
+    Instances data = null;
+    try {
+      InstanceQuery query = new InstanceQuery();
+      query.setUsername("root");
+      query.setPassword("123456");
+      //读100条，先处理
+      query.setQuery("select * from features");
+      data = query.retrieveInstances();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    //2. 读取模型
+    J48 j48Tree = null;
+    try {
+      j48Tree = (J48) SerializationHelper.read("src/model/j48.model");
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    //3. 多分类
+    for (Instance datum : data) {
+      try {
+        int type = (int) j48Tree.classifyInstance(datum);
+        table[type]++;
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+    //4. 统计判别：当此次分析过程中，有百分之80的数据记录被判别为攻击流量，那么就说明发生了攻击
+
+
+
+    return false;
+  }
+}
+
+```
+
+这里有些粗糙了，应当统计所有的攻击类型，然后封装到一个DTO里返回，这样可以在邮件服务里面添加攻击的详细信息。

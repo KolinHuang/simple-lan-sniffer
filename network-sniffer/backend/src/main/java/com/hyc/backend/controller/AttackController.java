@@ -1,10 +1,10 @@
 package com.hyc.backend.controller;
 
 import com.hyc.backend.dao.RedisMapper;
-import com.hyc.backend.dto.AttackStatisticDTO;
-import com.hyc.backend.dto.ResultDTO;
-import com.hyc.backend.packet.NetWorkInterface;
-import com.hyc.backend.pojo.AttackConfig;
+import com.hyc.dto.AttackStatisticDTO;
+import com.hyc.dto.ResultDTO;
+import com.hyc.packet.NetWorkInterface;
+import com.hyc.pojo.AttackConfig;
 import com.hyc.backend.redis.AttackKey;
 import com.hyc.backend.service.AttackService;
 import jpcap.NetworkInterface;

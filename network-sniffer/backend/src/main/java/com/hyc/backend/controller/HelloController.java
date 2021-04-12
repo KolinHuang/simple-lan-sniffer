@@ -1,21 +1,23 @@
 package com.hyc.backend.controller;
 
-import com.sun.org.apache.xpath.internal.operations.String;
+import com.hyc.interfaces.IHelloService;
+import org.apache.dubbo.config.annotation.Reference;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
 
 /**
  * @author kol Huang
- * @date 2021/3/18
+ * @date 2021/4/12
  */
-
 @Controller
 public class HelloController {
 
+    @Reference
+    IHelloService helloService;
+
     @RequestMapping("/hello")
-    @ResponseBody
     public String test(){
-        return new String();
+        String res = helloService.sayHello("hyc");
+        return res;
     }
 }
