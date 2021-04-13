@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.hyc.backend.dao.FeatureMapper">
+
+    <resultMap id="BaseResultMap" type="com.hyc.pojo.Features">
+        <id property="id" column="id"/>
+        <result property="duration" column="duration"/>
+        <result property="protocol_type" column="protocol_type"/>
+        <result property="service" column="service"/>
+        <result property="flag" column="flag"/>
+        <result property="userId" column="user_id"/>
+        <result property="src_byte" column="src_byte"/>
+        <result property="dst_byte" column="dst_byte"/>
+        <result property="goodsId" column="goods_id"/>
+        <result property="land" column="land"/>
+        <result property="wrong_fragment" column="wrong_fragment"/>
+        <result property="urgent" column="urgent"/>
+        <result property="hot" column="hot"/>
+        <result property="num_failed_logins" column="num_failed_logins"/>
+        <result property="logged_in" column="logged_in"/>
+        <result property="num_compromised" column="num_compromised"/>
+        <result property="root_shell" column="root_shell"/>
+        <result property="su_attempted" column="su_attempted"/>
+        <result property="num_root" column="num_root"/>
+        <result property="num_file_creations" column="num_file_creations"/>
+        <result property="num_outbound_cmds" column="num_outbound_cmds"/>
+        <result property="is_hot_login" column="is_hot_login"/>
+        <result property="is_guest_login" column="is_guest_login"/>
+        <result property="count" column="count"/>
+        <result property="srv_count" column="srv_count"/>
+        <result property="serror_rate" column="serror_rate"/>
+        <result property="srv_serror_rate" column="srv_serror_rate"/>
+        <result property="rerror_rate" column="rerror_rate"/>
+        <result property="srv_rerror_rate" column="srv_rerror_rate"/>
+        <result property="same_srv_rate" column="same_srv_rate"/>
+        <result property="diff_srv_rate" column="diff_srv_rate"/>
+        <result property="srv_diff_host_rate" column="srv_diff_host_rate"/>
+        <result property="dst_host_count" column="dst_host_count"/>
+        <result property="dst_host_srv_count" column="dst_host_srv_count"/>
+        <result property="dst_host_same_srv_rate" column="dst_host_same_srv_rate"/>
+        <result property="dst_host_diff_srv_rate" column="dst_host_diff_srv_rate"/>
+        <result property="dst_host_same_src_port_rate" column="dst_host_same_src_port_rate"/>
+        <result property="dst_host_srv_diff_host_rate" column="dst_host_srv_diff_host_rate"/>
+        <result property="dst_host_serror_rate" column="dst_host_serror_rate"/>
+        <result property="dst_host_srv_serror_rate" column="dst_host_srv_serror_rate"/>
+        <result property="dst_host_rerror_rate" column="dst_host_rerror_rate"/>
+        <result property="dst_host_srv_rerror_rate" column="dst_host_srv_rerror_rate"/>
+    </resultMap>
+
+
+    <select id="queryFeaturesByOffset" resultMap="BaseResultMap">
+        SELECT *
+        FROM features
+        WHERE id BETWEEN #{offset}
+        AND #{offset}+100
+    </select>
+
+
+</mapper>

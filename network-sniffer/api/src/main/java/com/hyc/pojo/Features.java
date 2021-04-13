@@ -6,6 +6,7 @@ package com.hyc.pojo;
  */
 
 public class Features {
+    private long id;
     //TCP连接基本特征
     //TCP持续时间，默认设为0，因为无法获取
     private int duration = 0;
@@ -49,6 +50,28 @@ public class Features {
     private byte is_hot_login;
     //若是guest 登录则为1，否则为0，离散，0或1。
     private byte is_guest_login;
+
+    //基于时间的网络流量统计特征
+    // 过去两秒内，与当前连接具有相同的目标主机的连接数，连续，[0, 511]。
+    private int count;
+    //过去两秒内，与当前连接具有相同服务的连接数，连续，[0, 511]。
+    private int srv_count;
+    //过去两秒内，在与当前连接具有相同目标主机的连接中，出现“SYN” 错误的连接的百分比，连续，[0.00, 1.00]。
+    private double serror_rate;
+    //过去两秒内，在与当前连接具有相同服务的连接中，出现“SYN” 错误的连接的百分比，连续，[0.00, 1.00]。
+    private double srv_serror_rate;
+    //过去两秒内，在与当前连接具有相同目标主机的连接中，出现“REJ” 错误的连接的百分比，连续，[0.00, 1.00]。
+    private double rerror_rate;
+    //过去两秒内，在与当前连接具有相同服务的连接中，出现“REJ” 错误的连接的百分比，连续，[0.00, 1.00]。
+    private double srv_rerror_rate;
+    //过去两秒内，在与当前连接具有相同目标主机的连接中，与当前连接具有相同服务的连接的百分比，连续，[0.00, 1.00]。
+    private double same_srv_rate;
+    //过去两秒内，在与当前连接具有相同目标主机的连接中，与当前连接具有不同服务的连接的百分比，连续，[0.00, 1.00]。
+    private double diff_srv_rate;
+    //过去两秒内，在与当前连接具有相同服务的连接中，与当前连接具有不同目标主机的连接的百分比，连续，[0.00, 1.00]。
+    private double srv_diff_host_rate;
+
+
 
     //基于主机的网络流量统计特征
     //前100个连接中，与当前连接具有相同目标主机的连接数，连续，[0, 255]。
@@ -233,6 +256,86 @@ public class Features {
         this.is_guest_login = is_guest_login;
     }
 
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public int getCount() {
+        return count;
+    }
+
+    public void setCount(int count) {
+        this.count = count;
+    }
+
+    public int getSrv_count() {
+        return srv_count;
+    }
+
+    public void setSrv_count(int srv_count) {
+        this.srv_count = srv_count;
+    }
+
+    public double getSerror_rate() {
+        return serror_rate;
+    }
+
+    public void setSerror_rate(double serror_rate) {
+        this.serror_rate = serror_rate;
+    }
+
+    public double getSrv_serror_rate() {
+        return srv_serror_rate;
+    }
+
+    public void setSrv_serror_rate(double srv_serror_rate) {
+        this.srv_serror_rate = srv_serror_rate;
+    }
+
+    public double getRerror_rate() {
+        return rerror_rate;
+    }
+
+    public void setRerror_rate(double rerror_rate) {
+        this.rerror_rate = rerror_rate;
+    }
+
+    public double getSrv_rerror_rate() {
+        return srv_rerror_rate;
+    }
+
+    public void setSrv_rerror_rate(double srv_rerror_rate) {
+        this.srv_rerror_rate = srv_rerror_rate;
+    }
+
+    public double getSame_srv_rate() {
+        return same_srv_rate;
+    }
+
+    public void setSame_srv_rate(double same_srv_rate) {
+        this.same_srv_rate = same_srv_rate;
+    }
+
+    public double getDiff_srv_rate() {
+        return diff_srv_rate;
+    }
+
+    public void setDiff_srv_rate(double diff_srv_rate) {
+        this.diff_srv_rate = diff_srv_rate;
+    }
+
+    public double getSrv_diff_host_rate() {
+        return srv_diff_host_rate;
+    }
+
+    public void setSrv_diff_host_rate(double srv_diff_host_rate) {
+        this.srv_diff_host_rate = srv_diff_host_rate;
+    }
+
     public int getDst_host_count() {
         return dst_host_count;
     }
@@ -311,5 +414,51 @@ public class Features {
 
     public void setDst_host_srv_rerror_rate(double dst_host_srv_rerror_rate) {
         this.dst_host_srv_rerror_rate = dst_host_srv_rerror_rate;
+    }
+
+    @Override
+    public String toString() {
+        return "Features{" +
+                "id=" + id +
+                ", duration=" + duration +
+                ", protocol_type='" + protocol_type + '\'' +
+                ", service='" + service + '\'' +
+                ", flag='" + flag + '\'' +
+                ", src_byte=" + src_byte +
+                ", dst_byte=" + dst_byte +
+                ", land=" + land +
+                ", wrong_fragment=" + wrong_fragment +
+                ", urgent=" + urgent +
+                ", hot=" + hot +
+                ", num_failed_logins=" + num_failed_logins +
+                ", logged_in=" + logged_in +
+                ", num_compromised=" + num_compromised +
+                ", root_shell=" + root_shell +
+                ", su_attempted=" + su_attempted +
+                ", num_root=" + num_root +
+                ", num_file_creations=" + num_file_creations +
+                ", num_outbound_cmds=" + num_outbound_cmds +
+                ", is_hot_login=" + is_hot_login +
+                ", is_guest_login=" + is_guest_login +
+                ", count=" + count +
+                ", srv_count=" + srv_count +
+                ", serror_rate=" + serror_rate +
+                ", srv_serror_rate=" + srv_serror_rate +
+                ", rerror_rate=" + rerror_rate +
+                ", srv_rerror_rate=" + srv_rerror_rate +
+                ", same_srv_rate=" + same_srv_rate +
+                ", diff_srv_rate=" + diff_srv_rate +
+                ", srv_diff_host_rate=" + srv_diff_host_rate +
+                ", dst_host_count=" + dst_host_count +
+                ", dst_host_srv_count=" + dst_host_srv_count +
+                ", dst_host_same_srv_rate=" + dst_host_same_srv_rate +
+                ", dst_host_diff_srv_rate=" + dst_host_diff_srv_rate +
+                ", dst_host_same_src_port_rate=" + dst_host_same_src_port_rate +
+                ", dst_host_srv_diff_host_rate=" + dst_host_srv_diff_host_rate +
+                ", dst_host_serror_rate=" + dst_host_serror_rate +
+                ", dst_host_srv_serror_rate=" + dst_host_srv_serror_rate +
+                ", dst_host_rerror_rate=" + dst_host_rerror_rate +
+                ", dst_host_srv_rerror_rate=" + dst_host_srv_rerror_rate +
+                '}';
     }
 }

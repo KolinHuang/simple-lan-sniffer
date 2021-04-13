@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
  * @author kol Huang
  * @date 2021/4/8
  */
-@Service
 public class MailService {
 
 

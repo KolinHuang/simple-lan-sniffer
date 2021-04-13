@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class HelloController {
 
-    @Reference
-    IHelloService helloService;
-
-    @RequestMapping("/hello")
-    public String test(){
-        String res = helloService.sayHello("hyc");
-        return res;
-    }
+//    @Reference
+//    IHelloService helloService;
+//
+//    @RequestMapping("/hello")
+//    public String test(){
+//        String res = helloService.sayHello("hyc");
+//        return res;
+//    }
 }
