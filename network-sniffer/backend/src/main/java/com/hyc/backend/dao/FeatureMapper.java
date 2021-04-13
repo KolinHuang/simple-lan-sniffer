@@ -19,4 +19,11 @@ public interface FeatureMapper {
      * @return
      */
     List<Features> queryFeaturesByOffset(@Param("offset") long offset);
+
+    /**
+     * 向mysql插入一条特征数据
+     * @param features
+     * @return
+     */
+    int insert(Features features);
 }

@@ -292,6 +292,7 @@ public class AttackService {
                             //检查是否是IP包
                             if(packet instanceof IPPacket){
                                 IPPacket ipPacket = (IPPacket) packet;
+
                                 //数据包属于filterDomain
                                 if(isRelatedToSpecificDomains(ipPacket.src_ip.getHostAddress())
                                         || isRelatedToSpecificDomains(ipPacket.dst_ip.getHostAddress())){
@@ -376,6 +377,7 @@ public class AttackService {
             }else{
                 downTcpNum++;
             }
+
             //应该在redis中为抓到的每一类数据包都创建一个list，分开存储，这样取的时候可以针对性的取！
             redisMapper.addToList(AttackKey.cap_packet, "batch_id" + batchId + "_TCP_list", capturedPacket);
         }else if(packet instanceof UDPPacket){

@@ -58,5 +58,127 @@
         AND #{offset}+100
     </select>
 
+    <insert id="insert" parameterType="com.hyc.pojo.Features" useGeneratedKeys="true" keyProperty="id">
+        insert into features
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="duration != null">
+                duration,
+            </if>
+            <if test="protocol_type != null">
+                protocol_type,
+            </if>
+            <if test="service != null">
+                service,
+            </if>
+            <if test="flag != null">
+                flag,
+            </if>
+            <if test="src_byte != null">
+                src_byte,
+            </if>
+            <if test="dst_byte != null">
+                dst_byte,
+            </if>
+            <if test="land != null">
+                land,
+            </if>
+            <if test="wrong_fragment != null">
+                wrong_fragment,
+            </if>
+            <if test="urgent != null">
+                urgent,
+            </if>
+            <if test="hot != null">
+                hot,
+            </if>
+            <if test="num_failed_logins != null">
+                num_failed_logins,
+            </if>
+            <if test="logged_in != null">
+                logged_in,
+            </if>
+            <if test="num_compromised != null">
+                num_compromised,
+            </if>
+            <if test="root_shell != null">
+                root_shell,
+            </if>
+            <if test="su_attempted != null">
+                su_attempted,
+            </if>
+            <if test="num_root != null">
+                num_root,
+            </if>
+            <if test="num_file_creations != null">
+                num_file_creations,
+            </if>
+            <if test="num_outbound_cmds != null">
+                num_outbound_cmds,
+            </if>
+            <if test="is_hot_login != null">
+                is_hot_login,
+            </if>
+            <if test="is_guest_login != null">
+                is_guest_login,
+            </if>
+            <if test="count != null">
+                `count`,
+            </if>
+            <if test="srv_count != null">
+                srv_count,
+            </if>
+            <if test="serror_rate != null">
+                serror_rate,
+            </if>
+            <if test="srv_serror_rate != null">
+                srv_serror_rate,
+            </if>
+            <if test="rerror_rate != null">
+                rerror_rate,
+            </if>
+            <if test="srv_rerror_rate != null">
+                srv_rerror_rate,
+            </if>
+            <if test="same_srv_rate != null">
+                same_srv_rate,
+            </if>
+            <if test="srv_diff_host_rate != null">
+                srv_diff_host_rate,
+            </if>
+            <if test="dst_host_count != null">
+                dst_host_count,
+            </if>
+            <if test="dst_host_srv_count != null">
+                dst_host_srv_count,
+            </if>
+            <if test="dst_host_same_srv_rate != null">
+                dst_host_same_srv_rate,
+            </if>
+            <if test="dst_host_diff_srv_rate != null">
+                dst_host_diff_srv_rate,
+            </if>
+            <if test="dst_host_same_src_port_rate != null">
+                dst_host_same_src_port_rate,
+            </if>
+            <if test="dst_host_srv_diff_host_rate != null">
+                dst_host_srv_diff_host_rate,
+            </if>
+            <if test="dst_host_serror_rate != null">
+                dst_host_serror_rate,
+            </if>
+            <if test="dst_host_srv_serror_rate != null">
+                dst_host_srv_serror_rate,
+            </if>
+            <if test="dst_host_rerror_rate != null">
+                dst_host_rerror_rate,
+            </if>
+            <if test="dst_host_srv_rerror_rate != null">
+                dst_host_srv_rerror_rate,
+            </if>
+        </trim>
+    </insert>
 
 </mapper>

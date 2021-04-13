@@ -3,7 +3,10 @@ package com.hyc.backend.service;
 
 import com.hyc.backend.dao.RedisMapper;
 import com.hyc.backend.redis.IDSKey;
+import com.hyc.backend.thread.IDSThread;
 import com.hyc.interfaces.IIDSService;
+import com.hyc.pojo.Features;
+import jpcap.packet.IPPacket;
 import org.apache.dubbo.config.annotation.Reference;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -40,10 +43,9 @@ public class IDSService {
     @PostConstruct
     void initIDSService(){
         //在初始化web项目的时候，就开启一条低优先级的线程，间隔10秒钟向数据库发起一段查询
-        //查询100条流量特征数据
-        //1. 如果不够100条怎么办？ 有多少查多少
-
+        new IDSThread(2).start();
     }
+
 
 
 

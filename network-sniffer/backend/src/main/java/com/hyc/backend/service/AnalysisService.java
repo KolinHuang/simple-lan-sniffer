@@ -15,16 +15,15 @@ import com.hyc.analysis.tcp.TcpAnalysisRealm;
 import com.hyc.analysis.tcp.TcpPacketFilter;
 import com.hyc.analysis.udp.UdpAnalysisRealm;
 import com.hyc.analysis.udp.UdpPacketFilter;
+import com.hyc.backend.dao.FeatureMapper;
 import com.hyc.backend.dao.RedisMapper;
 import com.hyc.backend.redis.AnalysisKey;
 import com.hyc.backend.redis.AttackKey;
 import com.hyc.backend.redis.BasePrefix;
 import com.hyc.backend.redis.CommonKey;
 import com.hyc.packet.*;
-import com.hyc.pojo.CapturedARPPacket;
-import com.hyc.pojo.CapturedICMPPacket;
-import com.hyc.pojo.CapturedTCPPacket;
-import com.hyc.pojo.CapturedUDPPacket;
+import com.hyc.pojo.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -42,6 +41,9 @@ public class AnalysisService {
     @Resource
     @Qualifier("redisMapper")
     private RedisMapper redisMapper;
+
+    @Autowired
+    private FeatureMapper featureMapper;
 
     private boolean analyzing = false;
 
@@ -87,6 +89,7 @@ public class AnalysisService {
                         analysisRealmMap.get(tcpPacket.getAckNum()).appendPacket(tcpPacket);
                     }
                 }
+
             }
         }
 
@@ -224,8 +227,9 @@ public class AnalysisService {
     private void saveRealmPackets(Map<Long, IAnalysisRealm> analysisRealmMap, Integer batchId, AbsAnalyzedPacket packet){
         for (Map.Entry<Long, IAnalysisRealm> entry : analysisRealmMap.entrySet()) {
             IAnalysisRealm value = entry.getValue();
-            AbsAnalyzedPacket toSavePacket = value.makePacket4Save();
-            if (toSavePacket != null) {
+            AbsAnalyzedPacket analyzedPacket = value.makePacket4Save();
+            generateFeatures(analyzedPacket);
+            if (analyzedPacket != null) {
                 BasePrefix prefix = null;
                 if(packet instanceof AnalyzedTcpPacket){
                     prefix = AnalysisKey.analyzedTCPPackets;
@@ -238,7 +242,7 @@ public class AnalysisService {
                     prefix = AnalysisKey.analyzedHttpsPackets;
                 }
 
-                redisMapper.addToList(prefix, "batchid_"+batchId+"list", toSavePacket);
+                redisMapper.addToList(prefix, "batchid_"+batchId+"list", analyzedPacket);
 
             }
         }
@@ -292,6 +296,32 @@ public class AnalysisService {
         contentTypes.add(HttpContentTypeEnum.OTHER.name());
 
         return contentTypes;
+    }
+
+
+    /*
+    public Features( String protocol_type, String service, String flag, int src_byte, int dst_byte, byte land, byte urgent) {
+        this.protocol_type = protocol_type;
+        this.service = service;
+        this.flag = flag;
+        this.src_byte = src_byte;
+        this.dst_byte = dst_byte;
+        this.land = land;
+        this.urgent = urgent;
+    }
+    * */
+
+    void generateFeatures(AbsAnalyzedPacket packet){
+        String protocol_type = packet.getProtocol();
+        String service = (packet.getDstPort() == 80 || packet.getSrcPort() == 80) ? "http" : "https";
+        String flag = "SF";
+        long src_byte = packet.getData().length;
+        long dst_byte = packet.getData().length;
+        //当目的主机套接字和源主机套接字相同时，可能发生了land攻击
+        byte land = (packet.getDstPort() == packet.getSrcPort() && packet.getDstIp().equals(packet.getSrcIp())) ? (byte)1 : (byte)0;
+
+        //插入数据库
+        featureMapper.insert(new Features(protocol_type, service, flag, src_byte, dst_byte, land));
     }
 
 }

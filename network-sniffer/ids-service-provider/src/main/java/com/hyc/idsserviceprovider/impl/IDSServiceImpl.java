@@ -6,7 +6,6 @@ import weka.classifiers.trees.J48;
 import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.SerializationHelper;
-import weka.core.converters.ConverterUtils;
 import weka.experiment.InstanceQuery;
 
 /**
@@ -51,9 +50,13 @@ public class IDSServiceImpl implements IIDSService {
             }
         }
         //4. 统计判别：当此次分析过程中，有百分之80的数据记录被判别为攻击流量，那么就说明发生了攻击
+        int sum = 0;
+        int norm = table[0];
+        for(int i = 0; i < table.length; ++i){
+            sum += table[i];
+        }
+        double at_rate = norm * 0.1 / sum;
 
-
-
-        return false;
+        return at_rate >= 0.8;
     }
 }

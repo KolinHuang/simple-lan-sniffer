@@ -1085,66 +1085,47 @@ public interface IIDSService {
 在analyze-service-provider模块中编写IIDSService接口的实现类`IDSServiceImpl`，代码的大体框架如下所示：
 
 ```java
-package com.hyc.idsserviceprovider.impl;
+public boolean isAttacked() {
+        //判断是否被攻击
+        //1. 从mysql中查询验证集
+//        ConverterUtils.DataSource source = null;
+        Instances data = null;
+        try {
+            InstanceQuery query = new InstanceQuery();
+            query.setUsername("root");
+            query.setPassword("123456");
+            //读100条，先处理
+            query.setQuery("select * from features");
+            data = query.retrieveInstances();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        //2. 读取模型
+        J48 j48Tree = null;
+        try {
+            j48Tree = (J48) SerializationHelper.read("src/model/j48.model");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        //3. 多分类
+        for (Instance datum : data) {
+            try {
+                int type = (int) j48Tree.classifyInstance(datum);
+                table[type]++;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        //4. 统计判别：当此次分析过程中，有百分之80的数据记录被判别为攻击流量，那么就说明发生了攻击
+        int sum = 0;
+        int norm = table[0];
+        for(int i = 0; i < table.length; ++i){
+            sum += table[i];
+        }
+        double at_rate = norm * 0.1 / sum;
 
-import com.hyc.interfaces.IIDSService;
-import org.apache.dubbo.config.annotation.Service;
-import weka.classifiers.trees.J48;
-import weka.core.Instance;
-import weka.core.Instances;
-import weka.core.SerializationHelper;
-import weka.core.converters.ConverterUtils;
-import weka.experiment.InstanceQuery;
-
-/**
- * @author kol Huang
- * @date 2021/4/12
- */
-@Service
-public class IDSServiceImpl implements IIDSService {
-
-  int[] table = new int[41];
-
-  @Override
-  public boolean isAttacked() {
-    //判断是否被攻击
-    //1. 从mysql中查询验证集
-    //        ConverterUtils.DataSource source = null;
-    Instances data = null;
-    try {
-      InstanceQuery query = new InstanceQuery();
-      query.setUsername("root");
-      query.setPassword("123456");
-      //读100条，先处理
-      query.setQuery("select * from features");
-      data = query.retrieveInstances();
-    } catch (Exception e) {
-      e.printStackTrace();
+        return at_rate >= 0.8;
     }
-    //2. 读取模型
-    J48 j48Tree = null;
-    try {
-      j48Tree = (J48) SerializationHelper.read("src/model/j48.model");
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    //3. 多分类
-    for (Instance datum : data) {
-      try {
-        int type = (int) j48Tree.classifyInstance(datum);
-        table[type]++;
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-    }
-    //4. 统计判别：当此次分析过程中，有百分之80的数据记录被判别为攻击流量，那么就说明发生了攻击
-
-
-
-    return false;
-  }
-}
-
 ```
 
 这里有些粗糙了，应当统计所有的攻击类型，然后封装到一个DTO里返回，这样可以在邮件服务里面添加攻击的详细信息。
@@ -1259,4 +1240,88 @@ private double dst_host_srv_rerror_rate;
 2. 在backend模块中抓包并分析，最后封装为features存入mysql。（实际上这步应当放到analyze-service中）
 3. 在ids-service-provider模块中实现入侵检测，从mysql中拉取数据，再通过训练好的j48tree分类器进行分类。
 4. ids服务依据分类器分类结果选择是否调用mail服务发送邮件告警。
+
+最后在backend模块中实现：在web容器初始化的时候，开启一条低优先级的线程`IDSThread`，每间隔10秒查询一次数据库，根据模型的分类结果调用邮件服务：
+
+```java
+package com.hyc.backend.thread;
+
+import com.hyc.dto.MailDto;
+import com.hyc.interfaces.IIDSService;
+import com.hyc.interfaces.IMailService;
+import org.apache.dubbo.config.annotation.Reference;
+
+/**
+ * @author kol Huang
+ * @date 2021/4/13
+ */
+public class IDSThread extends Thread{
+
+  @Reference
+  private IIDSService idsService;
+
+  @Reference
+  private IMailService mailService;
+
+  public IDSThread(int priority){
+    if(priority < 1)    priority = 1;
+    if(priority > 10)   priority = 10;
+    setPriority(priority);
+  }
+
+  @Override
+  public void run() {
+    boolean res = idsService.isAttacked();
+    if (res){
+      String subject = "alert!";
+      String content = "Your server may under attack!";
+      String[] tos = {"xxxx@xx.com"};
+      MailDto dto = new MailDto(subject, content, tos);
+      mailService.sendMail(dto);
+    }
+    try {
+      Thread.sleep(10000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+  }
+}
+```
+
+```java
+package com.hyc.backend.service;
+
+import com.hyc.backend.thread.IDSThread;
+import com.hyc.interfaces.IIDSService;
+import org.apache.dubbo.config.annotation.Reference;
+import javax.annotation.PostConstruct;
+
+
+/**
+ * 入侵检测服务：独立出来成为微服务
+ * @author kol Huang
+ * @date 2021/4/7
+ */
+public class IDSService {
+  //当被判别为异常的数据包个数超过100个，就进入告警
+  private static final Long THRESHOLD = 100L;
+  @Reference
+  IIDSService idsService;
+
+  @PostConstruct
+  void initIDSService(){
+    //在初始化web项目的时候，就开启一条低优先级的线程，间隔10秒钟向数据库发起一段查询
+    new IDSThread(2).start();
+  }
+}
+
+```
+
+
+
+
+
+
+
+## 8. 总结
 
